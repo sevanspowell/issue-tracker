@@ -31,18 +31,20 @@ import           DB.User
 
 data CommentT f
   = Comment
-  { _commentId         :: Columnar f Int
-  , _commentForIssue   :: PrimaryKey IssueT f
-  , _commentAuthor     :: PrimaryKey UserT f
-  , _commentPostedTime :: Columnar f LocalTime
-  , _commentContents   :: Columnar f Text
+  { _commentId              :: Columnar f Int
+  , _commentForIssue        :: PrimaryKey IssueT f
+  , _commentAuthor          :: PrimaryKey UserT f
+  , _commentPostedTimestamp :: Columnar f LocalTime
+  , _commentBody            :: Columnar f Text
   } deriving Generic
+
 type Comment = CommentT Identity
+
 deriving instance Show Comment
 
 Comment (LensFor commentId) (IssueId (LensFor commentForIssue))
-        (UserId (LensFor commentAuthor)) (LensFor commentPostedTime)
-        (LensFor commentContents) =
+        (UserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
+        (LensFor commentBody) =
   tableLenses
 
 instance Table CommentT where
@@ -51,21 +53,3 @@ instance Table CommentT where
 
 instance Beamable CommentT
 instance Beamable (PrimaryKey CommentT)
-
--- Issue has a custom 'IssueStatus' type, have to tell Beam how to deserialize it.
-instance HasSqlValueSyntax be String => HasSqlValueSyntax be IssueStatus where
-  sqlValueSyntax = autoSqlValueSyntax
-
-instance FromField IssueStatus where
-  fromField f bs = do x <- readMaybe <$> (fromField f bs)
-                      case x of
-                        Nothing -> returnError ConversionFailed f "Could not 'read' value for 'IssueStatus'"
-                        Just x -> pure x
-
-instance (BeamBackend be, FromBackendRow be Text) => FromBackendRow be IssueStatus where
-  fromBackendRow = do
-    val <- fromBackendRow
-    case (val :: Text) of
-      "OPEN"   -> pure Open
-      "CLOSED" -> pure Closed
-      _        -> fail ("Invalid value for IssueStatus: " ++ unpack val)

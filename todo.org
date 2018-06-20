@@ -1,0 +1,4 @@
+* Issue Tracker TODO
+
+** TODO Make PK of Users id, not email
+ - Keep unique email constraint though.

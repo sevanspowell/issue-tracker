@@ -20,6 +20,7 @@ import           Data.Text
 import           Data.Time
 import           Database.Beam
 import           Database.Beam.Backend
+import           Database.Beam.Backend.SQL
 
 import           DB.User
 
@@ -28,11 +29,11 @@ data IssueStatus = Open | Closed
 
 data IssueT f
   = Issue
-  { _issueId             :: Columnar f Int
-  , _issueTitle          :: Columnar f Text
-  , _issueSubmitter      :: PrimaryKey UserT f
-  , _issueSubmissionDate :: Columnar f LocalTime
-  , _issueStatus         :: Columnar f IssueStatus
+  { _issueId                  :: Columnar f Int
+  , _issueTitle               :: Columnar f Text
+  , _issueSubmitter           :: PrimaryKey UserT f
+  , _issueSubmissionTimestamp :: Columnar f LocalTime
+  , _issueStatus              :: Columnar f IssueStatus
   } deriving Generic
 
 type Issue = IssueT Identity
@@ -49,6 +50,18 @@ instance Beamable (PrimaryKey IssueT)
 deriving instance Show (PrimaryKey IssueT Identity)
 
 Issue (LensFor issueId) (LensFor issueTitle)
-      (UserId (LensFor issueSubmitter)) (LensFor issueSubmissionDate)
+      (UserId (LensFor issueSubmitter)) (LensFor issueSubmissionTimestamp)
       (LensFor issueStatus) =
   tableLenses
+
+-- Issue has a custom 'IssueStatus' type, have to tell Beam how to deserialize it.
+instance HasSqlValueSyntax be String => HasSqlValueSyntax be IssueStatus where
+  sqlValueSyntax = autoSqlValueSyntax
+
+instance (BeamBackend be, FromBackendRow be Text) => FromBackendRow be IssueStatus where
+  fromBackendRow = do
+    val <- fromBackendRow
+    case (val :: Text) of
+      "Open"   -> pure Open
+      "Closed" -> pure Closed
+      _        -> fail ("Invalid value for IssueStatus: " ++ unpack val)
