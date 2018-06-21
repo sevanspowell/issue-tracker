@@ -23,7 +23,7 @@ data IssueT f
   = Issue
   { _issueId                  :: Columnar f Int
   , _issueTitle               :: Columnar f Text
-  , _issueSubmitter           :: PrimaryKey UserT f
+  , _issueSubmitter           :: PrimaryKey DbUserT f
   , _issueSubmissionTimestamp :: Columnar f LocalTime
   , _issueStatus              :: Columnar f IssueStatus
   } deriving Generic
@@ -42,7 +42,7 @@ instance Beamable (PrimaryKey IssueT)
 deriving instance Show (PrimaryKey IssueT Identity)
 
 Issue (LensFor issueId) (LensFor issueTitle)
-      (UserId (LensFor issueSubmitter)) (LensFor issueSubmissionTimestamp)
+      (DbUserId (LensFor issueSubmitter)) (LensFor issueSubmissionTimestamp)
       (LensFor issueStatus) =
   tableLenses
 

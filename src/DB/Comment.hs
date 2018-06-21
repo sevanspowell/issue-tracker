@@ -17,7 +17,7 @@ data CommentT f
   = Comment
   { _commentId              :: Columnar f Int
   , _commentForIssue        :: PrimaryKey IssueT f
-  , _commentAuthor          :: PrimaryKey UserT f
+  , _commentAuthor          :: PrimaryKey DbUserT f
   , _commentPostedTimestamp :: Columnar f LocalTime
   , _commentBody            :: Columnar f Text
   } deriving Generic
@@ -28,7 +28,7 @@ type CommentId = PrimaryKey CommentT Identity
 deriving instance Show Comment
 
 Comment (LensFor commentId) (IssueId (LensFor commentForIssue))
-        (UserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
+        (DbUserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
         (LensFor commentBody) =
   tableLenses
 
