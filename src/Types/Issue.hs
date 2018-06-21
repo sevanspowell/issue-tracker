@@ -1,7 +1,11 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Types.Issue where
+module Types.Issue (IssueId
+                   , mkIssueId
+                   , getIssueId
+                   , fromDbIssue
+                   ) where
 
 import           GHC.Generics  (Generic)
 
@@ -24,6 +28,12 @@ newtype IssueId = IssueId Int
 
 newtype IssueTitle = IssueTitle Text
   deriving (Show, ToJSON)
+
+mkIssueId :: Int -> Either Error IssueId
+mkIssueId = Right . IssueId
+
+getIssueId :: IssueId -> Int
+getIssueId (IssueId id) = id
 
 mkIssueTitle :: Text -> Either Error IssueTitle
 mkIssueTitle = Right . IssueTitle
