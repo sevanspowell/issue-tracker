@@ -25,7 +25,7 @@ import           Types.Issue
 
 data IssueTrackerDb f = IssueTrackerDb
                       { _issueTrackerUsers    :: f (TableEntity DbUserT)
-                      , _issueTrackerIssues   :: f (TableEntity IssueT)
+                      , _issueTrackerIssues   :: f (TableEntity DbIssueT)
                       , _issueTrackerComments :: f (TableEntity CommentT)
                       } deriving Generic
 
@@ -47,12 +47,12 @@ users@[james, betty, sam] = [ DbUser "james@example.com" "James" "Smith" "b4cc34
                             , DbUser "betty@example.com" "Betty" "Jones" "82b054bd83ffad9b6cf8bdb98ce3cc2f"
                             , DbUser "sam@example.com" "Sam" "Taylor" "332532dcfaa1cbf61e2a266bd723612c"]
 
-insertAndReturnIssues :: Connection -> IO ([Issue])
+insertAndReturnIssues :: Connection -> IO ([DbIssue])
 insertAndReturnIssues conn = do
   let issues =
-        [ Issue default_ (val_ "Big problem") (val_ (pk james)) currentTimestamp_ (val_ Open)
-        , Issue default_ (val_ "Small problem") (val_ (pk betty)) currentTimestamp_ (val_ Open)
-        , Issue default_ (val_ "Med. problem") (val_ (pk sam)) currentTimestamp_ (val_ Closed)
+        [ DbIssue default_ (val_ "Big problem") (val_ (pk james)) currentTimestamp_ (val_ Open)
+        , DbIssue default_ (val_ "Small problem") (val_ (pk betty)) currentTimestamp_ (val_ Open)
+        , DbIssue default_ (val_ "Med. problem") (val_ (pk sam)) currentTimestamp_ (val_ Closed)
         ]
 
   runBeamPostgresDebug putStrLn conn $
@@ -66,7 +66,7 @@ insertUsers conn =
       insert (_issueTrackerUsers issueTrackerDb) $
         insertValues users
 
-insertComments :: Connection -> [Issue] -> IO ()
+insertComments :: Connection -> [DbIssue] -> IO ()
 insertComments conn issues =
   runBeamPostgresDebug putStrLn conn $
     runInsert $

@@ -19,8 +19,8 @@ import           Database.Beam.Backend.SQL (BeamBackend, HasSqlValueSyntax,
 import           DB.User
 import           Types.Issue               (IssueStatus (..))
 
-data IssueT f
-  = Issue
+data DbIssueT f
+  = DbIssue
   { _issueId                  :: Columnar f Int
   , _issueTitle               :: Columnar f Text
   , _issueSubmitter           :: PrimaryKey DbUserT f
@@ -28,22 +28,22 @@ data IssueT f
   , _issueStatus              :: Columnar f IssueStatus
   } deriving Generic
 
-type Issue = IssueT Identity
-type IssueId = PrimaryKey IssueT Identity
+type DbIssue = DbIssueT Identity
+type DbIssueId = PrimaryKey DbIssueT Identity
 
-deriving instance Show Issue
+deriving instance Show DbIssue
 
-instance Table IssueT where
-  data PrimaryKey IssueT f = IssueId (Columnar f Int) deriving Generic
-  primaryKey = IssueId . _issueId
+instance Table DbIssueT where
+  data PrimaryKey DbIssueT f = DbIssueId (Columnar f Int) deriving Generic
+  primaryKey = DbIssueId . _issueId
 
-instance Beamable IssueT
-instance Beamable (PrimaryKey IssueT)
-deriving instance Show (PrimaryKey IssueT Identity)
+instance Beamable DbIssueT
+instance Beamable (PrimaryKey DbIssueT)
+deriving instance Show (PrimaryKey DbIssueT Identity)
 
-Issue (LensFor issueId) (LensFor issueTitle)
-      (DbUserId (LensFor issueSubmitter)) (LensFor issueSubmissionTimestamp)
-      (LensFor issueStatus) =
+DbIssue (LensFor issueId) (LensFor issueTitle)
+        (DbUserId (LensFor issueSubmitter)) (LensFor issueSubmissionTimestamp)
+        (LensFor issueStatus) =
   tableLenses
 
 -- Issue has a custom 'IssueStatus' type, have to tell Beam how to deserialize it.

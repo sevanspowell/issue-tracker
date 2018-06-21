@@ -1,13 +1,13 @@
-{-# LANGUAGE DeriveGeneric             #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE ImpredicativeTypes        #-}
-{-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 module DB.Comment where
 
-import           Data.Text                            (Text)
-import           Data.Time                            (LocalTime)
+import           Data.Text     (Text)
+import           Data.Time     (LocalTime)
 import           Database.Beam
 
 import           DB.Issue
@@ -16,7 +16,7 @@ import           DB.User
 data CommentT f
   = Comment
   { _commentId              :: Columnar f Int
-  , _commentForIssue        :: PrimaryKey IssueT f
+  , _commentForIssue        :: PrimaryKey DbIssueT f
   , _commentAuthor          :: PrimaryKey DbUserT f
   , _commentPostedTimestamp :: Columnar f LocalTime
   , _commentBody            :: Columnar f Text
@@ -27,7 +27,7 @@ type CommentId = PrimaryKey CommentT Identity
 
 deriving instance Show Comment
 
-Comment (LensFor commentId) (IssueId (LensFor commentForIssue))
+Comment (LensFor commentId) (DbIssueId (LensFor commentForIssue))
         (DbUserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
         (LensFor commentBody) =
   tableLenses
