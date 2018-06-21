@@ -51,12 +51,15 @@ library
   -- exposed-modules:     
   
   -- Modules included in this library but not exported.
-  other-modules:       DB.IssueTrackerDb
+  other-modules:       DB
+                     , DB.IssueTrackerDb
                      , DB.Comment
                      , DB.Issue
                      , DB.User
                      , DB.PostgreSQL
                      , Types.Issue
+                     , Types.Error
+                     , Types.User
   
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:    
@@ -67,6 +70,7 @@ library
                      , beam-postgres >= 0.3.2.0
                      , beam-migrate >= 0.3.2.0
                      , postgresql-simple == 0.5.*
+                     , aeson >= 1.2.4.0
                      , text
                      , time
                      , lens
