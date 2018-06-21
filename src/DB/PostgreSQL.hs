@@ -55,7 +55,7 @@ rollbackDbTables = do
 
 createUsersTableQ :: PG.Query
 createUsersTableQ =
-  "CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, password TEXT NOT NULL)"
+  "CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL, password TEXT NOT NULL)"
 
 deleteUsersTableQ :: PG.Query
 deleteUsersTableQ =
@@ -63,7 +63,7 @@ deleteUsersTableQ =
 
 createIssuesTableQ :: PG.Query
 createIssuesTableQ =
-  "CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title TEXT NOT NULL, submitter__email TEXT REFERENCES users NOT NULL, submission_timestamp timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL, status text NOT NULL)"
+  "CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title TEXT NOT NULL, submitter__id integer REFERENCES users NOT NULL, submission_timestamp timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL, status text NOT NULL)"
 
 deleteIssuesTableQ :: PG.Query
 deleteIssuesTableQ =
@@ -71,7 +71,7 @@ deleteIssuesTableQ =
 
 createCommentsTableQ :: PG.Query
 createCommentsTableQ =
-  "CREATE TABLE IF NOT EXISTS comments (id SERIAL PRIMARY KEY, for_issue__id integer REFERENCES issues NOT NULL, author__email text REFERENCES users NOT NULL, posted_timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, body text NOT NULL)"
+  "CREATE TABLE IF NOT EXISTS comments (id SERIAL PRIMARY KEY, for_issue__id integer REFERENCES issues NOT NULL, author__id integer REFERENCES users NOT NULL, posted_timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, body text NOT NULL)"
 
 deleteCommentsTableQ :: PG.Query
 deleteCommentsTableQ =

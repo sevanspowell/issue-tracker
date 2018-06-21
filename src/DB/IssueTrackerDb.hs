@@ -43,9 +43,9 @@ issueTrackerDb = defaultDbSettings `withDbModification`
   }
 
 users :: [DbUser]
-users@[james, betty, sam] = [ DbUser "james@example.com" "James" "Smith" "b4cc344d25a2efe540adbf2678e2304c"
-                            , DbUser "betty@example.com" "Betty" "Jones" "82b054bd83ffad9b6cf8bdb98ce3cc2f"
-                            , DbUser "sam@example.com" "Sam" "Taylor" "332532dcfaa1cbf61e2a266bd723612c"]
+users@[james, betty, sam] = [ DbUser 1 "james@example.com" "James" "Smith" "b4cc344d25a2efe540adbf2678e2304c"
+                            , DbUser 2 "betty@example.com" "Betty" "Jones" "82b054bd83ffad9b6cf8bdb98ce3cc2f"
+                            , DbUser 3 "sam@example.com" "Sam" "Taylor" "332532dcfaa1cbf61e2a266bd723612c"]
 
 insertAndReturnIssues :: Connection -> IO ([DbIssue])
 insertAndReturnIssues conn = do
