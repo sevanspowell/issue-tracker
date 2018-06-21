@@ -2,6 +2,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Types.User (UserId
+                  , mkUserId
+                  , getUserId
                   , UserEmail
                   , mkUserEmail
                   , getUserEmail
@@ -13,10 +15,14 @@ module Types.User (UserId
 
 import           GHC.Generics (Generic)
 
+import           Control.Lens
+
 import           Data.Aeson   (ToJSON (toJSON))
 import           Data.Text    (Text)
 
-import           DB           (DbUser, DbUserT (..))
+import           DB           (DbUser, DbUserT (..), dbUserEmail,
+                               dbUserFirstName, dbUserId, dbUserLastName,
+                               dbUserPassword)
 import           Types.Error  (Error (..))
 
 newtype UserId = UserId Int
@@ -49,10 +55,17 @@ mkUserPassword = Right . UserPassword
 getUserPassword :: UserPassword -> Text
 getUserPassword (UserPassword txt) = txt
 
+mkUserId :: Int -> Either Error UserId
+mkUserId = Right . UserId
+
+getUserId :: UserId -> Int
+getUserId (UserId id) = id
+
 fromDbUser :: DbUser -> Either Error User
-fromDbUser (DbUser dbId dbEmail dbFName dbLName dbPw) =
-  User (UserId dbId)
-  <$> mkUserEmail dbEmail
-  <*> pure dbFName
-  <*> pure dbLName
-  <*> mkUserPassword dbPw
+fromDbUser user =
+  User
+  <$> mkUserId (user ^. dbUserId)
+  <*> mkUserEmail (user ^. dbUserEmail)
+  <*> pure (user ^. dbUserFirstName)
+  <*> pure (user ^. dbUserLastName)
+  <*> mkUserPassword (user ^. dbUserPassword)
