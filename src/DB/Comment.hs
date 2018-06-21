@@ -13,8 +13,8 @@ import           Database.Beam
 import           DB.Issue
 import           DB.User
 
-data CommentT f
-  = Comment
+data DbCommentT f
+  = DbComment
   { _commentId              :: Columnar f Int
   , _commentForIssue        :: PrimaryKey DbIssueT f
   , _commentAuthor          :: PrimaryKey DbUserT f
@@ -22,19 +22,19 @@ data CommentT f
   , _commentBody            :: Columnar f Text
   } deriving Generic
 
-type Comment = CommentT Identity
-type CommentId = PrimaryKey CommentT Identity
+type DbComment = DbCommentT Identity
+type DbCommentId = PrimaryKey DbCommentT Identity
 
-deriving instance Show Comment
+deriving instance Show DbComment
 
-Comment (LensFor commentId) (DbIssueId (LensFor commentForIssue))
-        (DbUserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
-        (LensFor commentBody) =
+DbComment (LensFor commentId) (DbIssueId (LensFor commentForIssue))
+          (DbUserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
+          (LensFor commentBody) =
   tableLenses
 
-instance Table CommentT where
-  data PrimaryKey CommentT f = CommentId (Columnar f Int) deriving Generic
-  primaryKey = CommentId . _commentId
+instance Table DbCommentT where
+  data PrimaryKey DbCommentT f = DbCommentId (Columnar f Int) deriving Generic
+  primaryKey = DbCommentId . _commentId
 
-instance Beamable CommentT
-instance Beamable (PrimaryKey CommentT)
+instance Beamable DbCommentT
+instance Beamable (PrimaryKey DbCommentT)

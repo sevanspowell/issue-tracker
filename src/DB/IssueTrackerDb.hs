@@ -26,7 +26,7 @@ import           Types.Issue
 data IssueTrackerDb f = IssueTrackerDb
                       { _issueTrackerUsers    :: f (TableEntity DbUserT)
                       , _issueTrackerIssues   :: f (TableEntity DbIssueT)
-                      , _issueTrackerComments :: f (TableEntity CommentT)
+                      , _issueTrackerComments :: f (TableEntity DbCommentT)
                       } deriving Generic
 
 instance Database be IssueTrackerDb
@@ -72,8 +72,8 @@ insertComments conn issues =
     runInsert $
       insert (issueTrackerDb ^. issueTrackerComments) $
         insertExpressions $
-          [ Comment default_ (val_ (pk (issues !! 0))) (val_ (pk james)) currentTimestamp_ (val_ "This is a big problem")
-          , Comment default_ (val_ (pk (issues !! 1))) (val_ (pk betty)) currentTimestamp_ (val_ "This is a small problem")
-          , Comment default_ (val_ (pk (issues !! 2))) (val_ (pk sam)) currentTimestamp_ (val_ "This is a medium problem")
-          , Comment default_ (val_ (pk (issues !! 2))) (val_ (pk betty)) currentTimestamp_ (val_ "Agreed, fixed in PR #253")
+          [ DbComment default_ (val_ (pk (issues !! 0))) (val_ (pk james)) currentTimestamp_ (val_ "This is a big problem")
+          , DbComment default_ (val_ (pk (issues !! 1))) (val_ (pk betty)) currentTimestamp_ (val_ "This is a small problem")
+          , DbComment default_ (val_ (pk (issues !! 2))) (val_ (pk sam)) currentTimestamp_ (val_ "This is a medium problem")
+          , DbComment default_ (val_ (pk (issues !! 2))) (val_ (pk betty)) currentTimestamp_ (val_ "Agreed, fixed in PR #253")
           ]
