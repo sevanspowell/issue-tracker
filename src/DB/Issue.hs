@@ -1,11 +1,12 @@
-{-# LANGUAGE DeriveGeneric             #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE ImpredicativeTypes        #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE UndecidableInstances      #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE ImpredicativeTypes    #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module DB.Issue where
 
@@ -16,9 +17,7 @@ import           Database.Beam.Backend.SQL (BeamBackend, HasSqlValueSyntax,
                                             autoSqlValueSyntax, sqlValueSyntax)
 
 import           DB.User
-
-data IssueStatus = Open | Closed
-                 deriving (Show, Read, Eq, Ord, Enum)
+import           Types.Issue               (IssueStatus (..))
 
 data IssueT f
   = Issue
