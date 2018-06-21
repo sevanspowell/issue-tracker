@@ -17,7 +17,7 @@ import           Database.Beam.Backend.SQL (BeamBackend, HasSqlValueSyntax,
                                             autoSqlValueSyntax, sqlValueSyntax)
 
 import           DB.User
-import           Types.Issue               (IssueStatus (..))
+import           Types                     (IssueStatus (..))
 
 data DbIssueT f
   = DbIssue
@@ -41,9 +41,9 @@ instance Beamable DbIssueT
 instance Beamable (PrimaryKey DbIssueT)
 deriving instance Show (PrimaryKey DbIssueT Identity)
 
-DbIssue (LensFor issueId) (LensFor issueTitle)
-        (DbUserId (LensFor issueSubmitter)) (LensFor issueSubmissionTimestamp)
-        (LensFor issueStatus) =
+DbIssue (LensFor dbIssueId) (LensFor dbIssueTitle)
+        (DbUserId (LensFor dbIssueSubmitter)) (LensFor dbIssueSubmissionTimestamp)
+        (LensFor dbIssueStatus) =
   tableLenses
 
 -- Issue has a custom 'IssueStatus' type, have to tell Beam how to deserialize it.

@@ -21,7 +21,7 @@ import qualified Database.Beam.Backend.SQL.BeamExtensions as BeamExtensions
 import           DB.Comment
 import           DB.Issue
 import           DB.User
-import           Types.Issue
+import           Types                                    (IssueStatus(..))
 
 data IssueTrackerDb f = IssueTrackerDb
                       { _issueTrackerUsers    :: f (TableEntity DbUserT)

@@ -27,9 +27,9 @@ type DbCommentId = PrimaryKey DbCommentT Identity
 
 deriving instance Show DbComment
 
-DbComment (LensFor commentId) (DbIssueId (LensFor commentForIssue))
-          (DbUserId (LensFor commentAuthor)) (LensFor commentPostedTimestamp)
-          (LensFor commentBody) =
+DbComment (LensFor dbCommentId) (DbIssueId (LensFor dbCommentForIssue))
+          (DbUserId (LensFor dbCommentAuthor)) (LensFor dbCommentPostedTimestamp)
+          (LensFor dbCommentBody) =
   tableLenses
 
 instance Table DbCommentT where

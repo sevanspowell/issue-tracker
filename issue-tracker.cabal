@@ -57,9 +57,11 @@ library
                      , DB.Issue
                      , DB.User
                      , DB.PostgreSQL
+                     , Types
                      , Types.Issue
                      , Types.Error
                      , Types.User
+                     , Types.Issue
   
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:    

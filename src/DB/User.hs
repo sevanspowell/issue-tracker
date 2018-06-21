@@ -32,7 +32,7 @@ instance Table DbUserT where
 instance Beamable DbUserT
 instance Beamable (PrimaryKey DbUserT)
 
-DbUser (LensFor userId) (LensFor userEmail) (LensFor userFirstName)
-       (LensFor userLastName) (LensFor userPassword) =
+DbUser (LensFor dbUserId) (LensFor dbUserEmail) (LensFor dbUserFirstName)
+       (LensFor dbUserLastName) (LensFor dbUserPassword) =
   tableLenses
 

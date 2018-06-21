@@ -12,7 +12,7 @@ import           Database.PostgreSQL.Simple.FromField (FromField,
 
 import           DB.IssueTrackerDb
 
-import           Types.Issue                          (IssueStatus)
+import           Types                                (IssueStatus)
 
 instance FromField IssueStatus where
   fromField f bs = do x <- readMaybe <$> (fromField f bs)
