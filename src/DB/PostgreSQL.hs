@@ -1,27 +1,16 @@
-{-# LANGUAGE DeriveGeneric             #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE ImpredicativeTypes        #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE PartialTypeSignatures     #-}
-{-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TypeApplications          #-}
-{-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeSynonymInstances      #-}
-{-# LANGUAGE UndecidableInstances      #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module DB.PostgreSQL where
 
-import           Database.PostgreSQL.Simple           (Connection, Query)
-import qualified Database.PostgreSQL.Simple           as PG
-import           Database.PostgreSQL.Simple.FromField
-
 import           Text.Read                            (readMaybe)
 
-import           DB.Issue
+import           Database.PostgreSQL.Simple           (Connection, Query)
+import qualified Database.PostgreSQL.Simple           as PG
+import           Database.PostgreSQL.Simple.FromField (FromField,
+                                                       ResultError (..),
+                                                       fromField, returnError)
+
+import           DB.Issue                             (IssueStatus)
 import           DB.IssueTrackerDb
 
 instance FromField IssueStatus where

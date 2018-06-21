@@ -1,17 +1,11 @@
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE ImpredicativeTypes        #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE PartialTypeSignatures     #-}
-{-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeSynonymInstances      #-}
-{-# LANGUAGE UndecidableInstances      #-}
 
 module DB.IssueTrackerDb where
 
@@ -21,15 +15,7 @@ import           Database.Beam.Postgres
 import           Control.Lens
 
 import           Database.PostgreSQL.Simple               (Connection, Query)
-import qualified Database.PostgreSQL.Simple               as PG
-import qualified Database.PostgreSQL.Simple.FromField
 
-import           Data.Text                                (Text, unpack)
-import           Data.Time
-import           Text.Read
-
-import           Database.Beam.Backend
-import           Database.Beam.Backend.SQL
 import qualified Database.Beam.Backend.SQL.BeamExtensions as BeamExtensions
 
 import           DB.Comment

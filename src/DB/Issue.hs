@@ -1,26 +1,19 @@
 {-# LANGUAGE DeriveGeneric             #-}
-{-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE ImpredicativeTypes        #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE PartialTypeSignatures     #-}
 {-# LANGUAGE StandaloneDeriving        #-}
-{-# LANGUAGE TypeApplications          #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeSynonymInstances      #-}
 {-# LANGUAGE UndecidableInstances      #-}
 
 module DB.Issue where
 
-import           Control.Lens
-import           Data.Text
-import           Data.Time
+import           Data.Text                 (Text, unpack)
+import           Data.Time                 (LocalTime)
 import           Database.Beam
-import           Database.Beam.Backend
-import           Database.Beam.Backend.SQL
+import           Database.Beam.Backend.SQL (BeamBackend, HasSqlValueSyntax,
+                                            autoSqlValueSyntax, sqlValueSyntax)
 
 import           DB.User
 
