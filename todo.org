@@ -1,4 +1,9 @@
 * Issue Tracker TODO
 
-** TODO Make PK of Users id, not email
+** NEXT Begin servant API
+** TODO Check if I can replace runBeamPostgres with something DB agnostic
+** DONE Make PK of Users id, not email
+   CLOSED: [2018-06-21 Thu 14:18]
  - Keep unique email constraint though.
+** DONE Rename DB datatypes
+   CLOSED: [2018-06-21 Thu 14:18]
