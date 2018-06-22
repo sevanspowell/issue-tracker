@@ -1,7 +1,9 @@
 * Issue Tracker TODO
 
-** NEXT Begin servant API
+** TODO Add monad transformer stack
 ** TODO Check if I can replace runBeamPostgres with something DB agnostic
+** DONE NEXT Begin servant API
+   CLOSED: [2018-06-22 Fri 15:43]
 ** DONE Make PK of Users id, not email
    CLOSED: [2018-06-21 Thu 14:18]
  - Keep unique email constraint though.
