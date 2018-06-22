@@ -36,6 +36,7 @@ data Comment = Comment
   , commentPostedTimestamp :: UTCTime
   , commentBody            :: CommentBody
   }
+  deriving (Show, Generic)
 
 mkCommentBody :: Text -> Either Error CommentBody
 mkCommentBody = Right . CommentBody
