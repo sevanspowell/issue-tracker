@@ -62,20 +62,31 @@ library
                      , Types.User
                      , Types.Issue
                      , Types.Comment
+                     , API
   
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:    
   
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.10 && <4.11
-                     , beam-core == 0.7.2.0
-                     , beam-postgres >= 0.3.2.0
-                     , beam-migrate >= 0.3.2.0
-                     , postgresql-simple == 0.5.*
                      , aeson >= 1.2.4.0
+                     , beam-core == 0.7.2.0
+                     , beam-migrate >= 0.3.2.0
+                     , beam-postgres >= 0.3.2.0
+                     , bytestring == 0.10.8.2
+                     , http-client == 0.5.10
+                     , lens
+                     , postgresql-simple == 0.5.*
+                     , resource-pool == 0.2.3.2
+                     , servant == 0.11
+                     , servant-auth
+                     , servant-auth-server
+                     , servant-client
+                     , servant-server
                      , text
                      , time
-                     , lens
+                     , wai == 3.2.1.1
+                     , warp == 3.2.13
   
   -- Directories containing source files.
   hs-source-dirs:      src
