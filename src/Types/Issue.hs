@@ -1,17 +1,23 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 module Types.Issue (IssueId
                    , mkIssueId
                    , getIssueId
+                   , mkIssueTitle
+                   , getIssueTitle
                    , fromDbIssue
+                   , Issue(..)
                    ) where
 
 import           GHC.Generics  (Generic)
 
 import           Control.Lens
 
-import           Data.Aeson    (ToJSON (toJSON))
+import           Data.Aeson    (FromJSON, ToJSON (toJSON), defaultOptions,
+                                genericToEncoding, parseJSON, toEncoding,
+                                withObject, (.:))
 import           Data.Text     (Text)
 import           Data.Time     (TimeZone, UTCTime, localTimeToUTC)
 
@@ -24,10 +30,10 @@ import           Types.Error   (Error (..))
 import           Types.User    (User (..), UserId, mkUserId)
 
 newtype IssueId = IssueId Int
-  deriving (Eq, Show, ToJSON)
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 newtype IssueTitle = IssueTitle Text
-  deriving (Show, ToJSON)
+  deriving (Show, Generic, ToJSON, FromJSON)
 
 mkIssueId :: Int -> Either Error IssueId
 mkIssueId = Right . IssueId
@@ -50,9 +56,20 @@ data Issue = Issue
   }
   deriving (Show, Generic)
 
+instance ToJSON Issue where
+  toEncoding = genericToEncoding defaultOptions
+
+instance FromJSON Issue where
+    parseJSON = withObject "Issue" $ \v -> Issue
+        <$> v .: "issueId"
+        <*> v .: "issueTitle"
+        <*> v .: "issueSubmitter"
+        <*> v .: "issueSubmissionTimestamp"
+        <*> v .: "issueStatus"
+
 -- Could maybe read timezone from config (server timezone)
-fromDbIssue :: DbIssue -> TimeZone -> Either Error Issue
-fromDbIssue issue tz =
+fromDbIssue :: TimeZone -> DbIssue -> Either Error Issue
+fromDbIssue tz issue =
   Issue (IssueId $ issue ^. dbIssueId)
   <$> mkIssueTitle (issue ^. dbIssueTitle)
   <*> mkUserId (issue ^. dbIssueSubmitter)

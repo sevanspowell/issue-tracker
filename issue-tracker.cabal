@@ -63,6 +63,7 @@ library
                      , Types.Issue
                      , Types.Comment
                      , API
+                     , API.Types
   
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:    

@@ -17,7 +17,7 @@ import           GHC.Generics (Generic)
 
 import           Control.Lens
 
-import           Data.Aeson   (ToJSON (toJSON))
+import           Data.Aeson   (ToJSON (toJSON), FromJSON)
 import           Data.Text    (Text)
 
 import           DB           (DbUser, DbUserT (..), dbUserEmail,
@@ -26,13 +26,13 @@ import           DB           (DbUser, DbUserT (..), dbUserEmail,
 import           Types.Error  (Error (..))
 
 newtype UserId = UserId Int
-  deriving (Eq, Show, ToJSON)
+  deriving (Eq, Show, ToJSON, FromJSON)
 
 newtype UserEmail = UserEmail Text
-  deriving (Show, ToJSON)
+  deriving (Show, ToJSON, FromJSON)
 
 newtype UserPassword = UserPassword Text
-  deriving (Show, ToJSON)
+  deriving (Show, ToJSON, FromJSON)
 
 data User = User
   { userId        :: UserId
