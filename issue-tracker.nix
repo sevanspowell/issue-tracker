@@ -1,7 +1,8 @@
 { mkDerivation, aeson, base, beam-core, beam-migrate, beam-postgres
-, bytestring, http-client, lens, postgresql-simple, resource-pool
-, servant, servant-auth, servant-auth-server, servant-client
-, servant-server, stdenv, text, time, wai, warp
+, bytestring, http-client, lens, mtl, postgresql-simple
+, resource-pool, servant, servant-auth, servant-auth-server
+, servant-client, servant-server, stdenv, text, time, transformers
+, wai, warp
 }:
 mkDerivation {
   pname = "issue-tracker";
@@ -9,9 +10,9 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     aeson base beam-core beam-migrate beam-postgres bytestring
-    http-client lens postgresql-simple resource-pool servant
+    http-client lens mtl postgresql-simple resource-pool servant
     servant-auth servant-auth-server servant-client servant-server text
-    time wai warp
+    time transformers wai warp
   ];
   license = stdenv.lib.licenses.bsd3;
 }

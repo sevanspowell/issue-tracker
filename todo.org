@@ -1,5 +1,6 @@
 * Issue Tracker TODO
 
+** TODO Watch classy MTL talk
 ** TODO Add monad transformer stack
 ** TODO Check if I can replace runBeamPostgres with something DB agnostic
 ** DONE NEXT Begin servant API
