@@ -5,6 +5,7 @@ module Types.Comment (Comment
                      , mkCommentBody
                      , getCommentBody
                      , fromDbComment
+                     , CommentBody
                      ) where
 
 import           GHC.Generics  (Generic)
@@ -19,7 +20,7 @@ import           Database.Beam
 import           DB            (DbComment, DbCommentT (..), dbCommentAuthor,
                                 dbCommentBody, dbCommentForIssue, dbCommentId,
                                 dbCommentPostedTimestamp)
-import           Types.Error   (Error (..))
+import           Types.Error   (AppError (..))
 import           Types.Issue   (IssueId, mkIssueId)
 import           Types.User    (UserId, mkUserId)
 
@@ -38,13 +39,13 @@ data Comment = Comment
   }
   deriving (Show, Generic)
 
-mkCommentBody :: Text -> Either Error CommentBody
+mkCommentBody :: Text -> Either AppError CommentBody
 mkCommentBody = Right . CommentBody
 
 getCommentBody :: CommentBody -> Text
 getCommentBody (CommentBody body) = body
 
-fromDbComment :: DbComment -> TimeZone -> Either Error Comment
+fromDbComment :: DbComment -> TimeZone -> Either AppError Comment
 fromDbComment comment tz =
   Comment (CommentId $ comment ^. dbCommentId)
   <$> mkIssueId (comment ^. dbCommentForIssue)

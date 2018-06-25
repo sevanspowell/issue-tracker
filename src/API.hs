@@ -4,7 +4,6 @@
 
 module API where
 
-import           API.Types
 import           Control.Concurrent
 import           Control.Exception          (bracket)
 import           Control.Monad.IO.Class
@@ -12,18 +11,22 @@ import           Data.ByteString            (ByteString)
 import           Data.Pool
 import qualified Data.Time.Clock            as T
 import           Database.PostgreSQL.Simple
-import qualified DB.IssueTrackerDb          as DB
 import           Network.HTTP.Client        (defaultManagerSettings, newManager)
 import           Network.Wai.Handler.Warp
 import           Servant
 import           Servant.Client
+import Control.Monad.Trans.Reader (runReaderT)
+import Control.Monad.Trans.Except (runExceptT)
+
+import qualified DB.IssueTrackerDb          as DB
+import           API.Types
 import           Types
 import           Types.Error
 import           Types.Issue
 import           Types.User
 
 type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
-      :<|> Get '[JSON] (Either Error [Issue])
+      :<|> Get '[JSON] (Either AppError [Issue])
 
 api :: Proxy API
 api = Proxy
@@ -34,24 +37,41 @@ initDB info = bracket (connect info) close $ \conn -> do
     "CREATE TABLE IF NOT EXISTS messages (msg text NOT NULL)"
   pure ()
 
-server :: Pool Connection -> Server API
+type AppM = AppT Handler
+
+server :: Pool Connection -> ServerT API AppM
 server conns = postIssueBlueprint :<|> getIssues
 
   where
-    postIssueBlueprint :: IssueBlueprint -> Handler NoContent
+    postIssueBlueprint :: IssueBlueprint -> AppM NoContent
     postIssueBlueprint issueBlueprint = do
       liftIO . withResource conns $ \conn ->
         DB.insertNewIssue conn issueBlueprint
 
       pure NoContent
 
-    getIssues :: Handler (Either Error [Issue])
+    getIssues :: AppM [Issue]
     getIssues = do
       liftIO . withResource conns $ \conn ->
         DB.getIssues conn
 
-runApp :: Pool Connection -> IO ()
-runApp conns = run 8080 (serve api $ server conns)
+nt :: AppEnv -> (AppM :~> Handler)
+nt env = NT $ (flip (>>=) (either (throwError . toServantErr) pure)) . runExceptT . flip runReaderT env . unAppT
+  where
+    toServantErr :: AppError -> ServantErr
+    toServantErr None = err404 { errBody = "Unknown Error"}
+
+app :: AppEnv -> Application
+app env = let
+    conns = dbConn . appDb $ env
+  in
+    serve api $ enter (nt env) (server conns)
+
+runApp :: AppEnv -> IO ()
+runApp env = let
+    conns = dbConn . appDb $ env
+  in
+    run 8080 (app env)
 
 initConnectionPool :: ConnectInfo -> IO (Pool Connection)
 initConnectionPool info =
@@ -62,7 +82,7 @@ initConnectionPool info =
              10
 
 postIssue :: IssueBlueprint -> ClientM NoContent
-getIssues :: ClientM (Either Error [Issue])
+getIssues :: ClientM (Either AppError [Issue])
 postIssue :<|> getIssues = client api
 
 main :: IO ()

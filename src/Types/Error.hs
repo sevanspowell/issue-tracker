@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
 
-module Types.Error (Error(..)) where
+module Types.Error (AppError(..)) where
 
 import           GHC.Generics (Generic)
 
 import           Data.Aeson   (FromJSON, ToJSON (toJSON))
 
-data Error = None
+data AppError = None
   deriving (Eq, Show, Generic, ToJSON, FromJSON)

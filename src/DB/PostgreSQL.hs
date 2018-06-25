@@ -24,6 +24,7 @@ instance FromField IssueStatus where
 closeDb :: Connection -> IO ()
 closeDb = PG.close
 
+
 createDbTables :: IO ()
 createDbTables = do
   let info = PG.defaultConnectInfo

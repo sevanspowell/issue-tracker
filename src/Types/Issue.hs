@@ -26,7 +26,7 @@ import           DB            (DbIssue, DbIssueT (..), dbIssueId,
                                 dbIssueStatus, dbIssueSubmissionTimestamp,
                                 dbIssueSubmitter, dbIssueTitle)
 import           Types         (IssueStatus (..))
-import           Types.Error   (Error (..))
+import           Types.Error   (AppError (..))
 import           Types.User    (User (..), UserId, mkUserId)
 
 newtype IssueId = IssueId Int
@@ -35,13 +35,13 @@ newtype IssueId = IssueId Int
 newtype IssueTitle = IssueTitle Text
   deriving (Show, Generic, ToJSON, FromJSON)
 
-mkIssueId :: Int -> Either Error IssueId
+mkIssueId :: Int -> Either AppError IssueId
 mkIssueId = Right . IssueId
 
 getIssueId :: IssueId -> Int
 getIssueId (IssueId id) = id
 
-mkIssueTitle :: Text -> Either Error IssueTitle
+mkIssueTitle :: Text -> Either AppError IssueTitle
 mkIssueTitle = Right . IssueTitle
 
 getIssueTitle :: IssueTitle -> Text
@@ -68,7 +68,7 @@ instance FromJSON Issue where
         <*> v .: "issueStatus"
 
 -- Could maybe read timezone from config (server timezone)
-fromDbIssue :: TimeZone -> DbIssue -> Either Error Issue
+fromDbIssue :: TimeZone -> DbIssue -> Either AppError Issue
 fromDbIssue tz issue =
   Issue (IssueId $ issue ^. dbIssueId)
   <$> mkIssueTitle (issue ^. dbIssueTitle)

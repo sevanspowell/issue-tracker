@@ -55,7 +55,7 @@ insertNewIssue conn (IssueBlueprint title submitter) =
       insert (_issueTrackerIssues issueTrackerDb) $
         insertExpressions [DbIssue default_ (val_ title) (val_ (DbUserId $ getUserId submitter)) currentTimestamp_ (val_ (Open))]
 
-getIssues :: Connection -> IO (Either Error [Issue])
+getIssues :: Connection -> IO (Either AppError [Issue])
 getIssues conn = do
   dbIssues <-
     runBeamPostgresDebug putStrLn conn $
@@ -67,7 +67,7 @@ getIssues conn = do
 
   pure . traverse (fromDbIssue tz) $ dbIssues
 
--- postComment :: Issue -> User -> CommentBody -> IO (Either Error ())
+-- postComment :: Issue -> User -> CommentBody -> IO (Either AppError ())
 -- postComment issue user body = do
 
 -- Some seed data
