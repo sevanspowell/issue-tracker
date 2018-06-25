@@ -46,12 +46,3 @@ newtype AppT m a = AppT {
              , MonadError AppError
              , MonadIO
              )
-
-newtype App a = App {
-    unApp :: AppT IO a
-  } deriving (Functor
-             , Applicative
-             , Monad
-             , MonadReader AppEnv
-             , MonadError AppError
-             , MonadIO)

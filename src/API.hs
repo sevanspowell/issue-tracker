@@ -7,26 +7,32 @@ module API where
 import           Control.Concurrent
 import           Control.Exception          (bracket)
 import           Control.Monad.IO.Class
+import           Control.Monad.Reader       (ask)
+import           Control.Monad.Trans.Except (runExceptT)
+import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.ByteString            (ByteString)
 import           Data.Pool
+import           Data.Text                  (unpack)
 import qualified Data.Time.Clock            as T
 import           Database.PostgreSQL.Simple
 import           Network.HTTP.Client        (defaultManagerSettings, newManager)
 import           Network.Wai.Handler.Warp
 import           Servant
 import           Servant.Client
-import Control.Monad.Trans.Reader (runReaderT)
-import Control.Monad.Trans.Except (runExceptT)
 
-import qualified DB.IssueTrackerDb          as DB
 import           API.Types
+import           Conf.Types
+import qualified DB.IssueTrackerDb          as DB
 import           Types
 import           Types.Error
 import           Types.Issue
 import           Types.User
 
+import           Layer1
+import           Layer2
+
 type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
-      :<|> Get '[JSON] (Either AppError [Issue])
+      :<|> Get '[JSON] [Issue]
 
 api :: Proxy API
 api = Proxy
@@ -39,39 +45,29 @@ initDB info = bracket (connect info) close $ \conn -> do
 
 type AppM = AppT Handler
 
-server :: Pool Connection -> ServerT API AppM
-server conns = postIssueBlueprint :<|> getIssues
-
+server :: ServerT API AppM
+server = postIssueHandler :<|> getIssuesHandler
   where
-    postIssueBlueprint :: IssueBlueprint -> AppM NoContent
-    postIssueBlueprint issueBlueprint = do
-      liftIO . withResource conns $ \conn ->
-        DB.insertNewIssue conn issueBlueprint
+    postIssueHandler :: IssueBlueprint -> AppM NoContent
+    postIssueHandler = fmap (const NoContent) . addIssue
 
-      pure NoContent
-
-    getIssues :: AppM [Issue]
-    getIssues = do
-      liftIO . withResource conns $ \conn ->
-        DB.getIssues conn
+    getIssuesHandler :: AppM [Issue]
+    getIssuesHandler = getIssues
 
 nt :: AppEnv -> (AppM :~> Handler)
-nt env = NT $ (flip (>>=) (either (throwError . toServantErr) pure)) . runExceptT . flip runReaderT env . unAppT
+nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
+  . runExceptT
+  . flip runReaderT env
+  . unAppT
   where
     toServantErr :: AppError -> ServantErr
     toServantErr None = err404 { errBody = "Unknown Error"}
 
 app :: AppEnv -> Application
-app env = let
-    conns = dbConn . appDb $ env
-  in
-    serve api $ enter (nt env) (server conns)
+app env = serve api $ enter (nt env) server
 
 runApp :: AppEnv -> IO ()
-runApp env = let
-    conns = dbConn . appDb $ env
-  in
-    run 8080 (app env)
+runApp env = run 8080 (app env)
 
 initConnectionPool :: ConnectInfo -> IO (Pool Connection)
 initConnectionPool info =
@@ -81,22 +77,36 @@ initConnectionPool info =
              60
              10
 
-postIssue :: IssueBlueprint -> ClientM NoContent
-getIssues :: ClientM (Either AppError [Issue])
-postIssue :<|> getIssues = client api
+postIssueC :: IssueBlueprint -> ClientM NoContent
+getIssuesC :: ClientM [Issue]
+postIssueC :<|> getIssuesC = client api
 
 main :: IO ()
 main = do
-  let connectionInfo = defaultConnectInfo
-                       { connectUser = "postgres"
-                       , connectPassword = "abc"
-                       , connectDatabase = "issue_tracker"
+  let
+    pth = DbPath "issue_tracker"
+    usr = DbUser "postgres"
+    pw  = DbPassword "abc"
+    port = Port 5432
+
+    conf = AppConf port pth usr pw
+
+    connectionInfo = defaultConnectInfo
+                       { connectUser     = unpack . getDbUser $ usr
+                       , connectPassword = unpack . getDbPassword $ pw
+                       , connectDatabase = unpack . getDbPath $ pth
+                       , connectPort = Conf.Types.getPort port
                        }
+
   pool <- initConnectionPool connectionInfo
-  initDB connectionInfo
+
+  let
+    appDb = AppDb pool
+    env = AppEnv conf appDb
+
   mgr <- newManager defaultManagerSettings
-  bracket (forkIO $ runApp pool) killThread $ \_ -> do
+  bracket (forkIO $ runApp env) killThread $ \_ -> do
     ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 8080 "")) $ do
-      traverse postIssue (IssueBlueprint "Testing blueprint" <$> (mkUserId 1))
-      getIssues
+      traverse postIssueC (IssueBlueprint "Testing blueprint" <$> (mkUserId 1))
+      getIssuesC
     print ms

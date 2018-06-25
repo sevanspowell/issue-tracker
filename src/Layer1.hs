@@ -16,12 +16,11 @@ import           DB.IssueTrackerDb          (issueTrackerDb, issueTrackerIssues)
 import           DB.User
 import           Layer2                     (MonadIssue (..))
 import           Types
-import           Types                      (App)
 import           Types.Issue                (Issue, fromDbIssue)
 import           Types.User                 (getUserId)
 
-instance MonadIssue App where
-  addIssue :: IssueBlueprint -> App ()
+instance (MonadIO m) => MonadIssue (AppT m) where
+  addIssue :: MonadIO m => IssueBlueprint -> AppT m ()
   addIssue (IssueBlueprint title submitter) = do
     env <- ask
 
@@ -38,7 +37,7 @@ instance MonadIssue App where
                               (val_ (Open))
                             ]
 
-  getIssues :: App [Issue]
+  getIssues :: (MonadIO m) => AppT m [Issue]
   getIssues = do
     env <- ask
 
