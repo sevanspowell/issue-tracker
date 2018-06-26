@@ -1,6 +1,6 @@
 {
     "networkConf":  {
-        "networkPort": 3000
+        "networkPort": 3008
     },
     "databaseConf": {
         "databasePort": 5432,
