@@ -2,7 +2,7 @@
 
 module Conf.Types where
 
-import           Data.Aeson      (FromJSON (..), ToJSON, (.:?))
+import           Data.Aeson      (FromJSON (..), ToJSON, (.:?), (.:))
 import qualified Data.Aeson      as A
 import           Data.Monoid     (Last (Last), getLast)
 import           Data.Semigroup  (Semigroup ((<>)))
@@ -26,47 +26,105 @@ newtype DbPassword = DbPassword
   { getDbPassword :: Text }
   deriving (Eq, Show)
 
-data AppConf = AppConf
-  { port       :: Port
-  , dbPath     :: DbPath
-  , dbUser     :: DbUser
-  , dbPassword :: DbPassword
+data AppNetworkConf = AppNetworkConf
+  { networkPort :: Port }
+  deriving (Eq, Show)
+
+data AppDatabaseConf = AppDatabaseConf
+  { databasePort     :: Port
+  , databasePath     :: DbPath
+  , databaseUser     :: DbUser
+  , databasePassword :: DbPassword
   }
   deriving (Eq, Show)
 
+data AppConf = AppConf
+  { networkConf  :: AppNetworkConf
+  , databaseConf :: AppDatabaseConf
+  }
+  deriving (Eq, Show)
+
+data NetworkConfigError
+  = MissingNetworkPort
+  deriving Show
+
+data DatabaseConfigError
+  = MissingDatabasePort
+  | MissingDatabasePath
+  | MissingDatabaseUser
+  | MissingDatabasePassword
+  deriving Show
+
 data ConfigError
-  = MissingPort
-  | MissingDbPath
-  | MissingDbUser
-  | MissingDbPassword
+  = MissingNetworkConfig
+  | MissingDatabaseConfig
+  | ConfigErrorNetwork NetworkConfigError
+  | ConfigErrorDatabase DatabaseConfigError
   | JSONDecodeError String
   | ConfigFileReadError IOError
   deriving Show
 
+data PartialNetworkConf = PartialNetworkConf
+  { pcNetworkPort :: Last Port }
+
+data PartialDatabaseConf = PartialDatabaseConf
+  { pcDatabasePort     :: Last Port
+  , pcDatabasePath     :: Last DbPath
+  , pcDatabaseUser     :: Last DbUser
+  , pcDatabasePassword :: Last DbPassword
+  }
+
 data PartialAppConf = PartialAppConf
- { pcPort       :: Last Port
- , pcDbPath     :: Last DbPath
- , pcDbUser     :: Last DbUser
- , pcDbPassword :: Last DbPassword
+ { pcNetworkConf  :: Last PartialNetworkConf
+ , pcDatabaseConf :: Last PartialDatabaseConf
  }
+
+instance Semigroup PartialNetworkConf where
+  a <> b = PartialNetworkConf
+    { pcNetworkPort = pcNetworkPort a <> pcNetworkPort b
+    }
+
+instance Semigroup PartialDatabaseConf where
+  a <> b = PartialDatabaseConf
+    { pcDatabasePort = pcDatabasePort a <> pcDatabasePort b
+    , pcDatabasePath = pcDatabasePath a <> pcDatabasePath b
+    , pcDatabaseUser = pcDatabaseUser a <> pcDatabaseUser a
+    , pcDatabasePassword = pcDatabasePassword a <> pcDatabasePassword b
+    }
 
 instance Semigroup PartialAppConf where
   a <> b = PartialAppConf
-    { pcPort       = pcPort a <> pcPort b
-    , pcDbPath     = pcDbPath a <> pcDbPath b
-    , pcDbUser     = pcDbUser a <> pcDbUser b
-    , pcDbPassword = pcDbPassword a <> pcDbPassword b
+    { pcNetworkConf  = pcNetworkConf a <> pcNetworkConf b
+    , pcDatabaseConf = pcDatabaseConf a <> pcDatabaseConf b
     }
 
-instance Monoid PartialAppConf where
-  mempty = PartialAppConf mempty mempty mempty mempty
+instance Monoid PartialNetworkConf where
+  mempty = PartialNetworkConf mempty
   mappend = (<>)
+
+instance Monoid PartialDatabaseConf where
+  mempty = PartialDatabaseConf mempty mempty mempty mempty
+  mappend = (<>)
+
+instance Monoid PartialAppConf where
+  mempty = PartialAppConf mempty mempty
+  mappend = (<>)
+
+-- parseToLast :: String -> a -> b -> Last b
+parseToLast k c o = Last . fmap c <$> o .:? k
+
+instance FromJSON PartialNetworkConf where
+  parseJSON = A.withObject "PartialNetworkConf" $ \o -> PartialNetworkConf
+    <$> parseToLast "networkPort" Port o
+
+instance FromJSON PartialDatabaseConf where
+  parseJSON = A.withObject "PartialDatabaseConf" $ \o -> PartialDatabaseConf
+    <$> parseToLast "databasePort" Port o
+    <*> parseToLast "databasePath" DbPath o
+    <*> parseToLast "databaseUser" DbUser o
+    <*> parseToLast "databasePassword" DbPassword o
 
 instance FromJSON PartialAppConf where
   parseJSON = A.withObject "PartialAppConf" $ \o -> PartialAppConf
-    <$> parseToLast "port" Port o
-    <*> parseToLast "dbPath" DbPath o
-    <*> parseToLast "dbUser" DbUser o
-    <*> parseToLast "dbPassword" DbPassword o
-    where
-      parseToLast k c o = Last . fmap c <$> o .:? k
+    <$> (Last <$> (o .:? "networkConf"))
+    <*> (Last <$> (o .:? "databaseConf"))

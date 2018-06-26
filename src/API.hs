@@ -5,10 +5,11 @@
 module API where
 
 import           Control.Concurrent
+import           Data.Bifunctor (first)
 import           Control.Exception          (bracket)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader       (ask)
-import           Control.Monad.Trans.Except (runExceptT)
+import           Control.Monad.Trans.Except (ExceptT(..), runExceptT)
 import           Control.Monad.Trans.Reader (runReaderT)
 import           Data.ByteString            (ByteString)
 import           Data.Pool
@@ -21,7 +22,8 @@ import           Servant
 import           Servant.Client
 
 import           API.Types
-import           Conf.Types
+import qualified Conf                       as Conf
+import qualified Conf.Types                 as Conf
 import qualified DB.IssueTrackerDb          as DB
 import           Types
 import           Types.Error
@@ -36,12 +38,6 @@ type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
 
 api :: Proxy API
 api = Proxy
-
-initDB :: ConnectInfo -> IO ()
-initDB info = bracket (connect info) close $ \conn -> do
-  execute_ conn
-    "CREATE TABLE IF NOT EXISTS messages (msg text NOT NULL)"
-  pure ()
 
 type AppM = AppT Handler
 
@@ -81,32 +77,49 @@ postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
 postIssueC :<|> getIssuesC = client api
 
+data StartupError
+  = ConfError Conf.ConfigError
+  | DbInitErr
+  deriving Show
+
+-- prepareAppEnv :: IO (Either StartupError AppEnv)
+-- prepareAppEnv =
+--   where
+
+initConf :: ExceptT StartupError IO Conf.AppConf
+initConf = ExceptT . fmap (first ConfError) $ Conf.parseOptions "config.json"
+
+-- initPool :: Conf.AppConf -> ExceptT StartupError IO (Pool Connection)
+-- initPool = ExceptT . _f $ createPool ()
+
 main :: IO ()
 main = do
-  let
-    pth = DbPath "issue_tracker"
-    usr = DbUser "postgres"
-    pw  = DbPassword "abc"
-    port = Port 5432
+  eConf <- Conf.parseOptions "config.json"
+  either (print) (print) eConf
 
-    conf = AppConf port pth usr pw
+-- main :: IO ()
+-- main = do
+--   eAppConf <- parseOptions "config.json"
 
-    connectionInfo = defaultConnectInfo
-                       { connectUser     = unpack . getDbUser $ usr
-                       , connectPassword = unpack . getDbPassword $ pw
-                       , connectDatabase = unpack . getDbPath $ pth
-                       , connectPort = Conf.Types.getPort port
-                       }
+--   pure $ do
+--     conf <- eAppConf
+--     let connectionInfo
+--           = defaultConnectInfo
+--             { connectUser = unpack . getDbUser . dbUser $ conf
+--             , connectPassword = unpack . getDbPassword . dbPassword $ conf
+--             , connectDatabase = unpack . getDbPath . dbPath $ conf
+--             , connectPort = Conf.Types.getPort . port $ conf
+--             }
 
-  pool <- initConnectionPool connectionInfo
+--   pool <- initConnectionPool connectionInfo
 
-  let
-    appDb = AppDb pool
-    env = AppEnv conf appDb
+--   let
+--     appDb = AppDb pool
+--     env = AppEnv conf appDb
 
-  mgr <- newManager defaultManagerSettings
-  bracket (forkIO $ runApp env) killThread $ \_ -> do
-    ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 8080 "")) $ do
-      traverse postIssueC (IssueBlueprint "Testing blueprint" <$> (mkUserId 1))
-      getIssuesC
-    print ms
+--   mgr <- newManager defaultManagerSettings
+--   bracket (forkIO $ runApp env) killThread $ \_ -> do
+--     ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 8080 "")) $ do
+--       traverse postIssueC (IssueBlueprint "Testing blueprint" <$> (mkUserId 1))
+--       getIssuesC
+--     print ms
