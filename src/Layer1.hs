@@ -18,9 +18,13 @@ import           Layer2                     (MonadIssue (..))
 import           Types
 import           Types.Issue                (Issue, fromDbIssue)
 import           Types.User                 (getUserId)
+import           Types.Error
 
 instance (MonadIO m) => MonadIssue (AppT m) where
-  addIssue :: MonadIO m => IssueBlueprint -> AppT m ()
+  -- addIssue :: (MonadError e m, MonadReader r m,
+  --              AsAppError e, HasDatabaseConf r,
+  --              MonadIO m)
+  --   => IssueBlueprint -> m ()
   addIssue (IssueBlueprint title submitter) = do
     env <- ask
 

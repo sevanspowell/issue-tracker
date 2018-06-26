@@ -2,7 +2,7 @@
 
 module Conf.Types where
 
-import           Data.Aeson      (FromJSON (..), ToJSON, (.:?), (.:))
+import           Data.Aeson      (FromJSON (..), ToJSON, (.:), (.:?))
 import qualified Data.Aeson      as A
 import           Data.Monoid     (Last (Last), getLast)
 import           Data.Semigroup  (Semigroup ((<>)))

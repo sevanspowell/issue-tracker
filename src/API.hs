@@ -5,7 +5,7 @@
 module API where
 
 import           Control.Concurrent
-import           Control.Exception          (bracket)
+import           Control.Exception          (bracket, try)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader       (ask)
 import           Control.Monad.Trans.Except (ExceptT (..), runExceptT)
@@ -71,7 +71,7 @@ postIssueC :<|> getIssuesC = client api
 
 data StartupError
   = ConfError ConfigError
-  | DbInitErr
+  | DbInitErr SqlError
   deriving Show
 
 prepareAppEnv :: ExceptT StartupError IO AppEnv
@@ -95,11 +95,9 @@ prepareAppEnv = do
           , connectDatabase = unpack . getDbPath . databasePath $ dbConf
           , connectPort = Conf.Types.getPort . databasePort $ dbConf
           }
-      in
-        liftIO $ createPool (connect connectionInfo) close 1 60 10
-
-destroyEnv :: AppEnv -> IO ()
-destroyEnv = destroyAllResources . dbConn . appDb
+      in do
+        conn <- ExceptT . fmap (first DbInitErr) . try $ connect connectionInfo
+        liftIO $ createPool (pure conn) close 1 60 10
 
 main :: IO ()
 main = do
