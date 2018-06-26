@@ -66,6 +66,7 @@ data ConfigError
 
 data PartialNetworkConf = PartialNetworkConf
   { pcNetworkPort :: Last Port }
+  deriving Show
 
 data PartialDatabaseConf = PartialDatabaseConf
   { pcDatabasePort     :: Last Port
@@ -73,11 +74,13 @@ data PartialDatabaseConf = PartialDatabaseConf
   , pcDatabaseUser     :: Last DbUser
   , pcDatabasePassword :: Last DbPassword
   }
+  deriving Show
 
 data PartialAppConf = PartialAppConf
- { pcNetworkConf  :: Last PartialNetworkConf
- , pcDatabaseConf :: Last PartialDatabaseConf
+ { pcNetworkConf  :: Maybe PartialNetworkConf
+ , pcDatabaseConf :: Maybe PartialDatabaseConf
  }
+ deriving Show
 
 instance Semigroup PartialNetworkConf where
   a <> b = PartialNetworkConf
@@ -88,7 +91,7 @@ instance Semigroup PartialDatabaseConf where
   a <> b = PartialDatabaseConf
     { pcDatabasePort = pcDatabasePort a <> pcDatabasePort b
     , pcDatabasePath = pcDatabasePath a <> pcDatabasePath b
-    , pcDatabaseUser = pcDatabaseUser a <> pcDatabaseUser a
+    , pcDatabaseUser = pcDatabaseUser a <> pcDatabaseUser b
     , pcDatabasePassword = pcDatabasePassword a <> pcDatabasePassword b
     }
 
@@ -126,5 +129,5 @@ instance FromJSON PartialDatabaseConf where
 
 instance FromJSON PartialAppConf where
   parseJSON = A.withObject "PartialAppConf" $ \o -> PartialAppConf
-    <$> (Last <$> (o .:? "networkConf"))
-    <*> (Last <$> (o .:? "databaseConf"))
+    <$> (o .:? "networkConf")
+    <*> (o .:? "databaseConf")

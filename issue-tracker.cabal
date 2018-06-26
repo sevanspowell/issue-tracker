@@ -51,7 +51,8 @@ library
   -- exposed-modules:     
   
   -- Modules included in this library but not exported.
-  other-modules:       DB
+  other-modules:       Conf
+                     , DB
                      , DB.IssueTrackerDb
                      , DB.Comment
                      , DB.Issue
@@ -64,7 +65,6 @@ library
                      , Types.Comment
                      , API
                      , API.Types
-                     , Conf
                      , Conf.File
                      , Conf.Types
                      , Layer2

@@ -94,8 +94,8 @@ initConf = ExceptT . fmap (first ConfError) $ Conf.parseOptions "config.json"
 
 main :: IO ()
 main = do
-  eConf <- Conf.parseOptions "config.json"
-  either (print) (print) eConf
+  conf <- runExceptT initConf
+  print conf
 
 -- main :: IO ()
 -- main = do

@@ -61,16 +61,16 @@ makeConfig
 makeConfig pc = do
   pcNet <- lastToEither MissingNetworkConfig pcNetworkConf
   pcDb  <- lastToEither MissingDatabaseConfig pcDatabaseConf
-  let netConf = first ConfigErrorNetwork $ makeNetworkConfig pcNet
-      dbConf  = first ConfigErrorDatabase $ makeDatabaseConfig pcDb
+  let netConf = first ConfigErrorNetwork $ makeNetworkConfig (pcNet)
+      dbConf  = first ConfigErrorDatabase $ makeDatabaseConfig (pcDb)
   AppConf <$> netConf <*> dbConf
   where
     lastToEither
       :: ConfigError
-      -> (PartialAppConf -> Last b)
+      -> (PartialAppConf -> Maybe b)
       -> Either ConfigError b
     lastToEither e g =
-      (maybe (Left e) (Right) . getLast . g) pc
+      (maybe (Left e) (Right) . g) pc
 
 parseOptions
   :: FilePath
