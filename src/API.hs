@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
 
 module API where
@@ -23,7 +24,7 @@ import           Network.HTTP.Client        (defaultManagerSettings, newManager)
 import           Network.Wai.Handler.Warp
 import           Servant                    as S
 import           Servant.Auth               as SA
-import           Servant.Auth.Server        as SA
+import           Servant.Auth.Server        as SAS
 import           Servant.Client
 
 import           API.Types
@@ -50,18 +51,29 @@ type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
       :<|> Get '[JSON] [Issue]
 
 type APIServer =
-  Auth '[SA.BasicAuth] AuthenticatedUser :> API
+  Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser :> API
 
 type APIClient =
   S.BasicAuth "test" AuthenticatedUser :> API
 
-api :: Proxy API
-api = Proxy
+-- api :: Proxy API
+-- api = Proxy
 
 type AppM = AppT Handler
 
 basicAuthServerContext :: Context (BasicAuthCheck AuthenticatedUser ': '[])
 basicAuthServerContext = authCheck S.:. EmptyContext
+
+authCheckNew :: BasicAuthData -> IO (AuthResult AuthenticatedUser)
+authCheckNew (BasicAuthData username password) = pure $
+  if username == "servant" && password == "server"
+  then either (const SAS.Indefinite) (Authenticated . AUser) (mkUserId 1)
+  else SAS.Indefinite
+
+type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
+
+instance FromBasicAuthData AuthenticatedUser where
+  fromBasicAuthData authData authCheckFunction = authCheckFunction authData
 
 authCheck :: BasicAuthCheck AuthenticatedUser
 authCheck =
@@ -71,14 +83,25 @@ authCheck =
         else pure Unauthorized
   in BasicAuthCheck check
 
-server :: ServerT API AppM
-server = postIssueHandler :<|> getIssuesHandler
+server :: ServerT APIServer AppM
+server (Authenticated user) = postIssueHandler :<|> getIssuesHandler
   where
     postIssueHandler :: IssueBlueprint -> AppM NoContent
     postIssueHandler = fmap (const NoContent) . addIssue
 
     getIssuesHandler :: AppM [Issue]
     getIssuesHandler = getIssues
+server _ = error1 :<|> error2
+  where
+    error1 :: IssueBlueprint -> AppM NoContent
+    error1 _ = do
+      throwError None
+      pure NoContent
+
+    error2 :: AppM [Issue]
+    error2 = do
+      throwError None
+      pure []
 
 nt :: AppEnv -> (AppM :~> Handler)
 nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
@@ -89,11 +112,19 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
     toServantErr :: AppError -> ServantErr
     toServantErr None = err404 { errBody = "Unknown Error"}
 
-app :: AppEnv -> Application
-app env = serveWithContext api basicAuthServerContext $ enter (nt env) server
+app :: AppEnv -> IO Application
+app env = do
+  myKey <- generateKey
+  let jwtCfg = defaultJWTSettings myKey
+      authCfg = authCheckNew
+      cfg = jwtCfg S.:. defaultCookieSettings S.:. authCfg S.:. EmptyContext
+      api = Proxy :: Proxy APIServer
+  pure $ serveWithContext api cfg $ enter (nt env) server
 
 runApp :: AppEnv -> IO ()
-runApp env = run 8080 (app env)
+runApp env = do
+  a <- app env
+  run 8080 a
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
@@ -144,3 +175,12 @@ main = do
         print ms
 
       destroyEnv env
+
+runServer :: IO ()
+runServer = do
+  eEnv <- runExceptT prepareAppEnv
+
+  case eEnv of
+    (Left err)  -> print err
+    (Right env) -> do
+      runApp env
