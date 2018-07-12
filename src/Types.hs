@@ -30,8 +30,12 @@ data IssueStatus = Open | Closed
 instance ToJSON IssueStatus
 instance FromJSON IssueStatus
 
+newtype DbConnection = DbConnection
+  { getDbConn :: Pool Connection
+  }
+
 newtype AppDb = AppDb
-  { dbConn :: Pool Connection
+  { appDbConnection :: DbConnection
   }
 
 data AppEnv = AppEnv
@@ -40,7 +44,7 @@ data AppEnv = AppEnv
   }
 
 destroyEnv :: AppEnv -> IO ()
-destroyEnv = destroyAllResources . dbConn . appDb
+destroyEnv = destroyAllResources . getDbConn . appDbConnection . appDb
 
 newtype AppT m a = AppT {
     unAppT :: ReaderT AppEnv (ExceptT AppError m) a
@@ -89,3 +93,16 @@ instance HasNetworkConf AppConf where
 
 instance HasDatabaseConf AppEnv where
   dbConfig = lens appConf (\d c -> d { appConf = c }) . dbConfig
+
+class HasAppDatabase t where
+  db :: Lens' t (AppDb)
+  dbConn :: Lens' t (DbConnection)
+
+  dbConn = db . dbConn
+
+instance HasAppDatabase AppDb where
+  db = id
+  dbConn = lens appDbConnection (\d c -> d { appDbConnection = c })
+
+instance HasAppDatabase AppEnv where
+  db = lens appDb (\d c -> d { appDb = c })

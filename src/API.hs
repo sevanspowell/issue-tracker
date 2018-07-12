@@ -9,6 +9,7 @@ module API where
 import           Control.Concurrent
 import           Control.Exception          (bracket, try)
 import           Control.Monad.IO.Class
+import           Control.Monad (join)
 import           Control.Monad.Reader       (ask)
 import           Control.Monad.Trans.Except (ExceptT (..), runExceptT)
 import           Control.Monad.Trans.Reader (runReaderT)
@@ -17,10 +18,12 @@ import           Data.Bifunctor             (first)
 import           Data.ByteString            (ByteString)
 import           Data.Pool
 import           Data.Text                  (unpack)
+import           Data.Text.Encoding                  (decodeUtf8)
 import qualified Data.Time.Clock            as T
 import           Database.PostgreSQL.Simple
 import           GHC.Generics
 import           Network.HTTP.Client        (defaultManagerSettings, newManager)
+import           Network.Wai (Request, requestHeaders)
 import           Network.Wai.Handler.Warp
 import           Servant                    as S
 import           Servant.Auth               as SA
@@ -39,6 +42,10 @@ import           Types.User
 import           Layer1
 import           Layer2
 
+import Servant.Server.Experimental.Auth (AuthHandler, AuthServerData,
+                                         mkAuthHandler)
+import Servant.Server.Experimental.Auth()
+
 data AuthenticatedUser = AUser { auId :: UserId
                                } deriving (Show, Generic)
 
@@ -51,7 +58,12 @@ type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
       :<|> Get '[JSON] [Issue]
 
 type APIServer =
-  Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser :> API
+  AuthProtect "cookie-auth" :> API
+
+genAuthAPI :: Proxy APIServer
+genAuthAPI = Proxy
+
+type instance AuthServerData (AuthProtect "cookie-auth") = AuthenticatedUser
 
 type APIClient =
   S.BasicAuth "test" AuthenticatedUser :> API
@@ -61,8 +73,29 @@ type APIClient =
 
 type AppM = AppT Handler
 
+-- BasicAuthCheck :: BasicAuthData -> IO (BasicAuthResult usr)
 basicAuthServerContext :: Context (BasicAuthCheck AuthenticatedUser ': '[])
 basicAuthServerContext = authCheck S.:. EmptyContext
+
+authHandler :: AppEnv -> AuthHandler Request AuthenticatedUser
+authHandler env =
+  let
+    handler :: Request -> AppM AuthenticatedUser
+    handler req = do
+      let
+        email = lookup "user-email" (requestHeaders req)
+      emailText <- maybe (throwError None) (pure) $ decodeUtf8 <$> email
+      userEmail <- either throwError (pure) $ mkUserEmail emailText
+      mUsr <- getUserByEmail userEmail
+      usr <- maybe (throwError None) (pure . AUser . userId) mUsr
+      pure usr
+  in mkAuthHandler ((ntx env) . handler)
+
+
+-- AuthHandler r a :: r -> Handler a
+-- AuthHandler Request AppEnv :: Request -> Handler AppEnv
+genAuthServerContext :: AppEnv -> Context (AuthHandler Request AuthenticatedUser ': '[])
+genAuthServerContext env = authHandler env S.:. EmptyContext
 
 authCheckNew :: BasicAuthData -> IO (AuthResult AuthenticatedUser)
 authCheckNew (BasicAuthData username password) = pure $
@@ -79,12 +112,12 @@ authCheck :: BasicAuthCheck AuthenticatedUser
 authCheck =
   let check (BasicAuthData username password) =
         if username == "servant" && password == "server"
-        then either (const $ pure Unauthorized) pure $ (fmap (Authorized . AUser) (mkUserId 1))
+        then either (const $ pure Unauthorized) pure $ fmap (Authorized . AUser) (mkUserId 1)
         else pure Unauthorized
   in BasicAuthCheck check
 
 server :: ServerT APIServer AppM
-server (Authenticated user) = postIssueHandler :<|> getIssuesHandler
+server (AUser userId) = postIssueHandler :<|> getIssuesHandler
   where
     postIssueHandler :: IssueBlueprint -> AppM NoContent
     postIssueHandler = fmap (const NoContent) . addIssue
@@ -103,8 +136,8 @@ server _ = error1 :<|> error2
       throwError None
       pure []
 
-nt :: AppEnv -> (AppM :~> Handler)
-nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
+ntx :: AppEnv -> AppM a -> Handler a
+ntx env = ((either (throwError . toServantErr) pure) =<<)
   . runExceptT
   . flip runReaderT env
   . unAppT
@@ -112,14 +145,17 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
     toServantErr :: AppError -> ServantErr
     toServantErr None = err404 { errBody = "Unknown Error"}
 
+nt :: AppEnv -> (AppM :~> Handler)
+nt env = NT $ ntx env
+
 app :: AppEnv -> IO Application
 app env = do
   myKey <- generateKey
-  let jwtCfg = defaultJWTSettings myKey
-      authCfg = authCheckNew
-      cfg = jwtCfg S.:. defaultCookieSettings S.:. authCfg S.:. EmptyContext
-      api = Proxy :: Proxy APIServer
-  pure $ serveWithContext api cfg $ enter (nt env) server
+  let -- jwtCfg = defaultJWTSettings myKey
+      -- authCfg = authCheckNew
+      -- cfg = jwtCfg S.:. defaultCookieSettings S.:. authCfg S.:. EmptyContext
+      -- api = Proxy :: Proxy APIServer
+  pure $ serveWithContext genAuthAPI (genAuthServerContext env) $ enter (nt env) server
 
 runApp :: AppEnv -> IO ()
 runApp env = do
@@ -138,9 +174,9 @@ data StartupError
 prepareAppEnv :: ExceptT StartupError IO AppEnv
 prepareAppEnv = do
   conf <- initConf
-  pool <- initPool conf
+  pool <- AppDb . DbConnection <$> initPool conf
 
-  pure (AppEnv conf (AppDb pool))
+  pure (AppEnv conf pool)
 
   where
     initConf :: ExceptT StartupError IO AppConf

@@ -11,6 +11,7 @@ module Types.User (UserId
                   , mkUserPassword
                   , getUserPassword
                   , User(..)
+                  , fromDbUser
                   ) where
 
 import           GHC.Generics (Generic)
