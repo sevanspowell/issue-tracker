@@ -89,8 +89,7 @@ authHandler env =
       mUsr <- getUserByEmail userEmail
       usr <- maybe (throwError None) (pure . AUser . userId) mUsr
       pure usr
-  in mkAuthHandler ((ntx env) . handler)
-
+  in mkAuthHandler ((enter $ nt env) . handler)
 
 -- AuthHandler r a :: r -> Handler a
 -- AuthHandler Request AppEnv :: Request -> Handler AppEnv
@@ -136,17 +135,14 @@ server _ = error1 :<|> error2
       throwError None
       pure []
 
-ntx :: AppEnv -> AppM a -> Handler a
-ntx env = ((either (throwError . toServantErr) pure) =<<)
+nt :: AppEnv -> (AppM :~> Handler)
+nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
   . runExceptT
   . flip runReaderT env
   . unAppT
   where
     toServantErr :: AppError -> ServantErr
     toServantErr None = err404 { errBody = "Unknown Error"}
-
-nt :: AppEnv -> (AppM :~> Handler)
-nt env = NT $ ntx env
 
 app :: AppEnv -> IO Application
 app env = do
