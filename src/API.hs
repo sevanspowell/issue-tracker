@@ -29,6 +29,7 @@ import           Servant                    as S
 import           Servant.Auth               as SA
 import           Servant.Auth.Server        as SAS
 import           Servant.Client
+import           Servant.Common.Req as SC
 
 import           API.Types
 import           Conf
@@ -66,7 +67,7 @@ genAuthAPI = Proxy
 type instance AuthServerData (AuthProtect "cookie-auth") = AuthenticatedUser
 
 type APIClient =
-  S.BasicAuth "test" AuthenticatedUser :> API
+  AuthProtect "cookie-auth" :> API
 
 -- api :: Proxy API
 -- api = Proxy
@@ -160,7 +161,7 @@ runApp env = do
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
-postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData "servant" "server")
+postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (mkAuthenticateReq "james@example.com" authenticateReq)
 
 data StartupError
   = ConfError ConfigError
@@ -191,6 +192,11 @@ prepareAppEnv = do
       in do
         conn <- ExceptT . fmap (first DbInitErr) . try $ connect connectionInfo
         liftIO $ createPool (pure conn) close 1 60 10
+
+type instance AuthClientData (AuthProtect "cookie-auth") = String
+
+authenticateReq :: String -> Req -> Req
+authenticateReq s req = SC.addHeader "user-email" s req
 
 main :: IO ()
 main = do
