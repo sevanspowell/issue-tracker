@@ -34,7 +34,7 @@ import           Types
 import           Types.Error
 import           Types.Issue                (Issue, fromDbIssue)
 import           Types.User                 (UserEmail, fromDbUser,
-                                             getUserEmail, getUserId)
+                                             getUserEmail, getUserId, User(..))
 
 instance (MonadIO m) => MonadUser (AppT m) where
   getUserByEmail email = do
@@ -52,7 +52,7 @@ instance (MonadIO m) => MonadUser (AppT m) where
       (Just usr) -> either throwError (pure . Just) . fromDbUser $ usr
 
 instance (MonadIO m) => MonadIssue (AppT m) where
-  addIssue (IssueBlueprint title submitter) = do
+  addIssue userId (IssueBlueprint title) = do
     conns <- getDbConn <$> view dbConn
 
     liftIO $ withResource conns $ \conn ->
@@ -61,7 +61,7 @@ instance (MonadIO m) => MonadIssue (AppT m) where
         insert (issueTrackerDb ^. issueTrackerIssues) $
           insertExpressions [DbIssue default_
                               (val_ title)
-                              (val_ (DbUserId $ getUserId submitter))
+                              (val_ (DbUserId $ getUserId userId))
                               currentTimestamp_
                               (val_ (Open))
                             ]

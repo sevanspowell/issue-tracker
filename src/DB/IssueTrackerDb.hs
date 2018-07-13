@@ -48,12 +48,12 @@ issueTrackerDb = defaultDbSettings `withDbModification`
   , _issueTrackerComments  = modifyTable (\_ -> "comments") tableModification
   }
 
-insertNewIssue :: Connection -> IssueBlueprint -> IO ()
-insertNewIssue conn (IssueBlueprint title submitter) =
-  runBeamPostgresDebug putStrLn conn $
-    runInsert $
-      insert (_issueTrackerIssues issueTrackerDb) $
-        insertExpressions [DbIssue default_ (val_ title) (val_ (DbUserId $ getUserId submitter)) currentTimestamp_ (val_ (Open))]
+-- insertNewIssue :: Connection -> IssueBlueprint -> IO ()
+-- insertNewIssue conn (IssueBlueprint title) =
+--   runBeamPostgresDebug putStrLn conn $
+--     runInsert $
+--       insert (_issueTrackerIssues issueTrackerDb) $
+--         insertExpressions [DbIssue default_ (val_ title) (val_ (DbUserId $ getUserId submitter)) currentTimestamp_ (val_ (Open))]
 
 getIssues :: Connection -> IO (Either AppError [Issue])
 getIssues conn = do

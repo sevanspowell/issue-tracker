@@ -15,7 +15,7 @@ class Monad m => MonadUser m where
   getUserByEmail :: UserEmail -> m (Maybe User)
 
 class Monad m => MonadIssue m where
-  addIssue :: IssueBlueprint -> m ()
+  addIssue :: UserId -> IssueBlueprint -> m ()
   getIssues :: m [Issue]
 
 class Monad m => MonadComment m where

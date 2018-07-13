@@ -12,8 +12,7 @@ import           Types.Issue  (IssueId)
 import           Types.User   (UserId)
 
 data IssueBlueprint = IssueBlueprint
-  { issueBlueprintTitle     :: Text
-  , issueBlueprintSubmitter :: UserId
+  { issueBlueprintTitle :: Text
   }
   deriving (Show, Eq, Generic, ToJSON, FromJSON)
 

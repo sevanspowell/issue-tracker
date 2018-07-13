@@ -59,68 +59,36 @@ type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
       :<|> Get '[JSON] [Issue]
 
 type APIServer =
-  AuthProtect "cookie-auth" :> API
+  Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser :> API
 
-genAuthAPI :: Proxy APIServer
-genAuthAPI = Proxy
+type APIClient =
+  S.BasicAuth "test" AuthenticatedUser :> API
 
 type instance AuthServerData (AuthProtect "cookie-auth") = AuthenticatedUser
 
-type APIClient =
-  AuthProtect "cookie-auth" :> API
-
--- api :: Proxy API
--- api = Proxy
-
 type AppM = AppT Handler
 
--- BasicAuthCheck :: BasicAuthData -> IO (BasicAuthResult usr)
-basicAuthServerContext :: Context (BasicAuthCheck AuthenticatedUser ': '[])
-basicAuthServerContext = authCheck S.:. EmptyContext
-
-authHandler :: AppEnv -> AuthHandler Request AuthenticatedUser
-authHandler env =
+basicAuthCheck :: AppEnv -> BasicAuthData -> IO (AuthResult AuthenticatedUser)
+basicAuthCheck env =
   let
-    handler :: Request -> AppM AuthenticatedUser
-    handler req = do
-      let
-        email = lookup "user-email" (requestHeaders req)
-      emailText <- maybe (throwError None) (pure) $ decodeUtf8 <$> email
+    check :: BasicAuthData -> AppM (AuthResult AuthenticatedUser)
+    check (BasicAuthData username password) = do
+      emailText <- pure . decodeUtf8 $ username
       userEmail <- either throwError (pure) $ mkUserEmail emailText
       mUsr <- getUserByEmail userEmail
-      usr <- maybe (throwError None) (pure . AUser . userId) mUsr
-      pure usr
-  in mkAuthHandler ((enter $ nt env) . handler)
-
--- AuthHandler r a :: r -> Handler a
--- AuthHandler Request AppEnv :: Request -> Handler AppEnv
-genAuthServerContext :: AppEnv -> Context (AuthHandler Request AuthenticatedUser ': '[])
-genAuthServerContext env = authHandler env S.:. EmptyContext
-
-authCheckNew :: BasicAuthData -> IO (AuthResult AuthenticatedUser)
-authCheckNew (BasicAuthData username password) = pure $
-  if username == "servant" && password == "server"
-  then either (const SAS.Indefinite) (Authenticated . AUser) (mkUserId 1)
-  else SAS.Indefinite
+      maybe (throwError None) (pure . Authenticated . AUser . userId) mUsr
+  in (fmap (either (const SAS.Indefinite) id) . runHandler . (enter $ nt env) . check)
 
 type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 
 instance FromBasicAuthData AuthenticatedUser where
   fromBasicAuthData authData authCheckFunction = authCheckFunction authData
 
-authCheck :: BasicAuthCheck AuthenticatedUser
-authCheck =
-  let check (BasicAuthData username password) =
-        if username == "servant" && password == "server"
-        then either (const $ pure Unauthorized) pure $ fmap (Authorized . AUser) (mkUserId 1)
-        else pure Unauthorized
-  in BasicAuthCheck check
-
 server :: ServerT APIServer AppM
-server (AUser userId) = postIssueHandler :<|> getIssuesHandler
+server (Authenticated user) = postIssueHandler :<|> getIssuesHandler
   where
     postIssueHandler :: IssueBlueprint -> AppM NoContent
-    postIssueHandler = fmap (const NoContent) . addIssue
+    postIssueHandler = fmap (const NoContent) . addIssue (auId user)
 
     getIssuesHandler :: AppM [Issue]
     getIssuesHandler = getIssues
@@ -148,11 +116,11 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
 app :: AppEnv -> IO Application
 app env = do
   myKey <- generateKey
-  let -- jwtCfg = defaultJWTSettings myKey
-      -- authCfg = authCheckNew
-      -- cfg = jwtCfg S.:. defaultCookieSettings S.:. authCfg S.:. EmptyContext
-      -- api = Proxy :: Proxy APIServer
-  pure $ serveWithContext genAuthAPI (genAuthServerContext env) $ enter (nt env) server
+  let jwtCfg = defaultJWTSettings myKey
+      authCfg = basicAuthCheck env
+      cfg = jwtCfg S.:. defaultCookieSettings S.:. authCfg S.:. EmptyContext
+      api = Proxy :: Proxy APIServer
+  pure $ serveWithContext api cfg $ enter (nt env) server
 
 runApp :: AppEnv -> IO ()
 runApp env = do
@@ -161,7 +129,7 @@ runApp env = do
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
-postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (mkAuthenticateReq "james@example.com" authenticateReq)
+postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData "james@example.com" "foobar")
 
 data StartupError
   = ConfError ConfigError
@@ -193,11 +161,6 @@ prepareAppEnv = do
         conn <- ExceptT . fmap (first DbInitErr) . try $ connect connectionInfo
         liftIO $ createPool (pure conn) close 1 60 10
 
-type instance AuthClientData (AuthProtect "cookie-auth") = String
-
-authenticateReq :: String -> Req -> Req
-authenticateReq s req = SC.addHeader "user-email" s req
-
 main :: IO ()
 main = do
   eEnv <- runExceptT prepareAppEnv
@@ -208,7 +171,7 @@ main = do
       mgr <- newManager defaultManagerSettings
       bracket (forkIO $ runApp env) killThread $ \_ -> do
         ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 8080 "")) $ do
-          traverse postIssueC (IssueBlueprint "Testing blueprint" <$> (mkUserId 1))
+          postIssueC (IssueBlueprint "Testing blueprint")
           getIssuesC
         print ms
 
