@@ -7,53 +7,48 @@
 module API where
 
 import           Control.Concurrent
-import           Control.Exception          (bracket, try)
+import           Control.Exception                (bracket, try)
+import           Control.Monad                    (join)
 import           Control.Monad.IO.Class
-import           Control.Monad (join)
-import           Control.Monad.Reader       (ask)
-import           Control.Monad.Trans.Except (ExceptT (..), runExceptT)
-import           Control.Monad.Trans.Reader (runReaderT)
+import           Control.Monad.Reader             (ask)
+import           Control.Monad.Trans.Except       (ExceptT (..), runExceptT, except)
+import           Control.Monad.Trans.Reader       (runReaderT)
 import           Data.Aeson
-import           Data.Bifunctor             (first)
-import           Data.ByteString            (ByteString)
+import           Data.Bifunctor                   (first)
+import           Data.ByteString                  (ByteString)
+import           Data.ByteString.Lazy.Char8 (pack)
 import           Data.Pool
-import           Data.Text                  (unpack)
-import           Data.Text.Encoding                  (decodeUtf8)
-import qualified Data.Time.Clock            as T
+import           Data.Text                        (unpack)
+import           Data.Text.Encoding               (decodeUtf8)
+import qualified Data.Time.Clock                  as T
 import           Database.PostgreSQL.Simple
 import           GHC.Generics
-import           Network.HTTP.Client        (defaultManagerSettings, newManager)
-import           Network.Wai (Request, requestHeaders)
+import           Network.HTTP.Client              (defaultManagerSettings,
+                                                   newManager)
+import           Network.Wai                      (Request, requestHeaders)
 import           Network.Wai.Handler.Warp
-import           Servant                    as S
-import           Servant.Auth               as SA
-import           Servant.Auth.Server        as SAS
+import           Servant                          as S
+import           Servant.Auth                     as SA
+import           Servant.Auth.Server              as SAS
 import           Servant.Client
-import           Servant.Common.Req as SC
+import           Servant.Common.Req               as SC
 
-import           API.Types
 import           Conf
 import           Conf.Types
-import qualified DB.IssueTrackerDb          as DB
-import           Types
-import           Types.Error
-import           Types.Issue
-import           Types.User
+import qualified DB.IssueTrackerDb                as DB
+import           Types                            (AppDb(..), AppEnv (..),
+                                                   AppError (..), AppT (..),
+                                                   DbConnection(..), Issue,
+                                                   IssueBlueprint (..), UserId,
+                                                   destroyEnv, mkUserEmail,
+                                                   userId, AuthenticatedUser(..))
 
 import           Layer1
 import           Layer2
 
-import Servant.Server.Experimental.Auth (AuthHandler, AuthServerData,
-                                         mkAuthHandler)
-import Servant.Server.Experimental.Auth()
-
-data AuthenticatedUser = AUser { auId :: UserId
-                               } deriving (Show, Generic)
-
-instance ToJSON AuthenticatedUser
-instance FromJSON AuthenticatedUser
-instance ToJWT AuthenticatedUser
-instance FromJWT AuthenticatedUser
+import           Servant.Server.Experimental.Auth (AuthHandler, AuthServerData,
+                                                   mkAuthHandler)
+import           Servant.Server.Experimental.Auth ()
 
 type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
       :<|> Get '[JSON] [Issue]
@@ -76,7 +71,7 @@ basicAuthCheck env =
       emailText <- pure . decodeUtf8 $ username
       userEmail <- either throwError (pure) $ mkUserEmail emailText
       mUsr <- getUserByEmail userEmail
-      maybe (throwError None) (pure . Authenticated . AUser . userId) mUsr
+      maybe (throwError $ NoUserWithEmail userEmail) (pure . Authenticated . AUser . userId) mUsr
   in (fmap (either (const SAS.Indefinite) id) . runHandler . (enter $ nt env) . check)
 
 type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
@@ -92,17 +87,13 @@ server (Authenticated user) = postIssueHandler :<|> getIssuesHandler
 
     getIssuesHandler :: AppM [Issue]
     getIssuesHandler = getIssues
-server _ = error1 :<|> error2
+server err = error1 :<|> error2
   where
     error1 :: IssueBlueprint -> AppM NoContent
-    error1 _ = do
-      throwError None
-      pure NoContent
+    error1 _ = throwError $ AuthenticationError err
 
     error2 :: AppM [Issue]
-    error2 = do
-      throwError None
-      pure []
+    error2 = throwError $ AuthenticationError err
 
 nt :: AppEnv -> (AppM :~> Handler)
 nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
@@ -111,10 +102,12 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
   . unAppT
   where
     toServantErr :: AppError -> ServantErr
-    toServantErr None = err404 { errBody = "Unknown Error"}
+    toServantErr err@(NoUserWithEmail _) = err404 { errBody = pack $ show err }
+    toServantErr err@(DbError _)         = err404 { errBody = pack $ show err }
+    toServantErr err@(AuthenticationError _) = err403 { errBody = pack $ show err }
 
-app :: AppEnv -> IO Application
-app env = do
+mkApp :: AppEnv -> IO Application
+mkApp env = do
   myKey <- generateKey
   let jwtCfg = defaultJWTSettings myKey
       authCfg = basicAuthCheck env
@@ -124,8 +117,8 @@ app env = do
 
 runApp :: AppEnv -> IO ()
 runApp env = do
-  a <- app env
-  run 8080 a
+  app <- mkApp env
+  run 8080 app
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
@@ -185,3 +178,19 @@ runServer = do
     (Left err)  -> print err
     (Right env) -> do
       runApp env
+
+test :: IO ()
+test = do
+  eEnv <- runExceptT prepareAppEnv
+
+  case eEnv of
+    (Left err)  -> print err
+    (Right env) -> do
+      eUnit <- runExceptT . flip runReaderT env . unAppT $ do
+        email <- either throwError pure $ mkUserEmail "null@example.com"
+        mUser <- getUserByEmail email
+        liftIO $ case mUser of
+          Nothing  -> print "No user"
+          (Just u) -> print u
+
+      either print pure eUnit

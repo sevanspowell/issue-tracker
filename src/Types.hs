@@ -7,12 +7,15 @@ module Types where
 import           GHC.Generics               (Generic)
 
 import           Control.Lens
+import           Control.Lens.TH
 import           Control.Monad.Except       (MonadError)
 import           Control.Monad.Reader       (MonadReader)
 import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.Trans.Except (ExceptT)
 import           Control.Monad.Trans.Reader (ReaderT)
 import           Data.Text                  (Text)
+import           Data.Time                  (UTCTime)
+import qualified Database.Beam.Postgres     as B
 import           GHC.Word                   (Word16)
 
 import           Data.Aeson                 (FromJSON (..), ToJSON (..),
@@ -21,7 +24,7 @@ import           Data.Pool                  (Pool, destroyAllResources)
 import           Database.PostgreSQL.Simple (Connection)
 
 import           Conf.Types
-import           Types.Error
+import           Servant.Auth.Server (AuthResult, ToJWT, FromJWT)
 
 
 data IssueStatus = Open | Closed
@@ -43,6 +46,18 @@ data AppEnv = AppEnv
   , appDb   :: AppDb
   }
 
+class HasAppDatabase t where
+  db :: Lens' t (AppDb)
+  dbConn :: Lens' t (DbConnection)
+  dbConn = db . dbConn
+
+instance HasAppDatabase AppDb where
+  db = id
+  dbConn = lens appDbConnection (\d c -> d { appDbConnection = c })
+
+instance HasAppDatabase AppEnv where
+  db = lens appDb (\d c -> d { appDb = c })
+
 destroyEnv :: AppEnv -> IO ()
 destroyEnv = destroyAllResources . getDbConn . appDbConnection . appDb
 
@@ -56,53 +71,133 @@ newtype AppT m a = AppT {
              , MonadIO
              )
 
-class HasDatabaseConf t where
-  dbConfig :: Lens' t AppDatabaseConf
-  dbPort :: Lens' t Port
-  dbPath :: Lens' t DbPath
-  dbUser :: Lens' t DbUser
-  dbPassword :: Lens' t DbPassword
+data AuthenticatedUser = AUser { auId :: UserId
+                               } deriving (Show, Generic)
 
-  dbPort = dbConfig . dbPort
-  dbPath = dbConfig . dbPath
-  dbUser = dbConfig . dbUser
-  dbPassword = dbConfig . dbPassword
+instance ToJSON AuthenticatedUser
+instance FromJSON AuthenticatedUser
+instance ToJWT AuthenticatedUser
+instance FromJWT AuthenticatedUser
 
-instance HasDatabaseConf AppDatabaseConf where
-  dbConfig = id
-  dbPort = lens databasePort (\d c -> d { databasePort = c })
-  dbPath = lens databasePath (\d c -> d { databasePath = c })
-  dbUser = lens databaseUser (\d c -> d { databaseUser = c })
-  dbPassword = lens databasePassword (\d c -> d { databasePassword = c })
+-- Errors
+data DbError = BeamPostgresError B.PgError
+             | PostgresResultError B.ResultError
+             | PostgresSqlError B.SqlError
+  deriving (Show)
 
-class HasNetworkConf t where
-  netConfig :: Lens' t AppNetworkConf
-  netPort :: Lens' t Port
+data AppError = NoUserWithEmail UserEmail
+              | DbError DbError
+              | AuthenticationError (AuthResult AuthenticatedUser)
+  deriving (Show)
 
-  netPort = netConfig . netPort
+-- User
 
-instance HasNetworkConf AppNetworkConf where
-  netConfig = id
-  netPort = lens networkPort (\d c -> d { networkPort = c })
+newtype UserId = UserId Int
+  deriving (Eq, Show, ToJSON, FromJSON)
 
-instance HasDatabaseConf AppConf where
-  dbConfig = lens databaseConf (\d c -> d { databaseConf = c })
+newtype UserEmail = UserEmail Text
+  deriving (Eq, Show, ToJSON, FromJSON)
 
-instance HasNetworkConf AppConf where
-  netConfig = lens networkConf (\d c -> d { networkConf = c })
+newtype UserPassword = UserPassword Text
+  deriving (Show, ToJSON, FromJSON)
 
-instance HasDatabaseConf AppEnv where
-  dbConfig = lens appConf (\d c -> d { appConf = c }) . dbConfig
+data User = User
+  { userId        :: UserId
+  , userEmail     :: UserEmail
+  , userFirstName :: Text
+  , userLastName  :: Text
+  , userPassword  :: UserPassword
+  }
+  deriving (Show, Generic)
 
-class HasAppDatabase t where
-  db :: Lens' t (AppDb)
-  dbConn :: Lens' t (DbConnection)
+mkUserEmail :: Text -> Either AppError UserEmail
+mkUserEmail = Right . UserEmail
 
-  dbConn = db . dbConn
+getUserEmail :: UserEmail -> Text
+getUserEmail (UserEmail txt) = txt
 
-instance HasAppDatabase AppDb where
-  db = id
-  dbConn = lens appDbConnection (\d c -> d { appDbConnection = c })
+mkUserPassword :: Text -> Either AppError UserPassword
+mkUserPassword = Right . UserPassword
 
-instance HasAppDatabase AppEnv where
-  db = lens appDb (\d c -> d { appDb = c })
+getUserPassword :: UserPassword -> Text
+getUserPassword (UserPassword txt) = txt
+
+mkUserId :: Int -> Either AppError UserId
+mkUserId = Right . UserId
+
+getUserId :: UserId -> Int
+getUserId (UserId id) = id
+
+-- Issue
+
+newtype IssueId = IssueId Int
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+newtype IssueTitle = IssueTitle Text
+  deriving (Show, Generic, ToJSON, FromJSON)
+
+mkIssueId :: Int -> Either AppError IssueId
+mkIssueId = Right . IssueId
+
+getIssueId :: IssueId -> Int
+getIssueId (IssueId id) = id
+
+mkIssueTitle :: Text -> Either AppError IssueTitle
+mkIssueTitle = Right . IssueTitle
+
+getIssueTitle :: IssueTitle -> Text
+getIssueTitle (IssueTitle txt) = txt
+
+data Issue = Issue
+  { issueId                  :: IssueId
+  , issueTitle               :: IssueTitle
+  , issueSubmitter           :: UserId
+  , issueSubmissionTimestamp :: UTCTime
+  , issueStatus              :: IssueStatus
+  }
+  deriving (Show, Generic)
+
+instance ToJSON Issue where
+instance FromJSON Issue
+
+-- Comment
+
+newtype CommentId = CommentId Int
+  deriving (Eq, Show, ToJSON)
+
+newtype CommentBody = CommentBody Text
+  deriving (Eq, Show, ToJSON)
+
+data Comment = Comment
+  { commentId              :: CommentId
+  , commentForIssue        :: IssueId
+  , commentAuthor          :: UserId
+  , commentPostedTimestamp :: UTCTime
+  , commentBody            :: CommentBody
+  }
+  deriving (Show, Generic)
+
+mkCommentBody :: Text -> Either AppError CommentBody
+mkCommentBody = Right . CommentBody
+
+getCommentBody :: CommentBody -> Text
+getCommentBody (CommentBody body) = body
+
+-- Blueprints
+data IssueBlueprint = IssueBlueprint
+  { issueBlueprintTitle :: Text
+  }
+  deriving (Show, Eq, Generic)
+
+instance ToJSON IssueBlueprint
+instance FromJSON IssueBlueprint
+
+data CommentBlueprint = CommentBlueprint
+  { commentBlueprintForIssue :: IssueId
+  , commentBlueprintAuthor   :: UserId
+  , commentBlueprintBody     :: Text
+  }
+  deriving (Show, Eq, Generic)
+
+instance ToJSON CommentBlueprint
+instance FromJSON CommentBlueprint

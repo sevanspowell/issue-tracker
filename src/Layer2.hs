@@ -4,12 +4,7 @@ import           Control.Lens
 import           Control.Monad.Except (MonadError)
 import           Control.Monad.Reader (MonadReader)
 
-import           API.Types            (IssueBlueprint (..))
 import           Types
-import           Types.Comment
-import           Types.Error
-import           Types.Issue
-import           Types.User
 
 class Monad m => MonadUser m where
   getUserByEmail :: UserEmail -> m (Maybe User)

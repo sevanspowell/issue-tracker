@@ -20,14 +20,11 @@ import           Database.PostgreSQL.Simple               (Connection, Query)
 
 import qualified Database.Beam.Backend.SQL.BeamExtensions as BeamExtensions
 
-import           API.Types
+import           DB                                       (fromDbIssue)
 import           DB.Comment
 import           DB.Issue
 import           DB.User
-import           Types                                    (IssueStatus (..))
-import           Types.Error
-import           Types.Issue
-import           Types.User
+import           Types
 
 data IssueTrackerDb f = IssueTrackerDb
                       { _issueTrackerUsers    :: f (TableEntity DbUserT)

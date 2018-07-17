@@ -59,12 +59,7 @@ library
                      , DB.User
                      , DB.PostgreSQL
                      , Types
-                     , Types.Error
-                     , Types.User
-                     , Types.Issue
-                     , Types.Comment
                      , API
-                     , API.Types
                      , Conf.File
                      , Conf.Types
                      , Layer2
@@ -85,6 +80,7 @@ library
                      , mtl
                      , postgresql-simple == 0.5.*
                      , resource-pool == 0.2.3.2
+                     , safe-exceptions
                      , servant == 0.11
                      , servant-auth
                      , servant-auth-server
