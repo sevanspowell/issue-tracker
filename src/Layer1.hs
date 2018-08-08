@@ -37,7 +37,7 @@ import           Types                      (AppError (..), AppT,
                                              Issue, IssueBlueprint (..),
                                              IssueStatus (..), User (..),
                                              UserEmail, dbConn, getUserEmail,
-                                             getUserId)
+                                             getUserId, getUserPassword)
 
 
 beamErrors :: B.PgError -> Maybe AppError
@@ -53,7 +53,7 @@ sqlErrors err@(B.SqlError _ _ _ _ _) = Just . DbError . PostgresSqlError $ err
 -- sqlErrors _ = Nothing
 
 instance (MonadIO m) => MonadUser (AppT m) where
-  getUserByEmail email = do
+  authenticateUser email password = do
     conns <- getDbConn <$> view dbConn
 
     let
@@ -61,6 +61,7 @@ instance (MonadIO m) => MonadUser (AppT m) where
         B.runSelectReturningOne $
           B.select $
           B.filter_ (\user -> (_userEmail user) B.==. (B.val_ $ getUserEmail email)) $
+          B.filter_ (\user -> (_userPassword user) B.==. (B.val_ $ getUserPassword password)) $
           B.all_ (issueTrackerDb ^. issueTrackerUsers)
 
     x <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->

@@ -7,7 +7,7 @@ import           Control.Monad.Reader (MonadReader)
 import           Types
 
 class Monad m => MonadUser m where
-  getUserByEmail :: UserEmail -> m (Maybe User)
+  authenticateUser :: UserEmail -> UserPassword -> m (Maybe User)
 
 class Monad m => MonadIssue m where
   addIssue :: UserId -> IssueBlueprint -> m ()

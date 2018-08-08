@@ -40,7 +40,7 @@ import           Types                            (AppDb(..), AppEnv (..),
                                                    AppError (..), AppT (..),
                                                    DbConnection(..), Issue,
                                                    IssueBlueprint (..), UserId,
-                                                   destroyEnv, mkUserEmail,
+                                                    destroyEnv, mkUserEmail, mkUserPassword,
                                                    userId, AuthenticatedUser(..))
 
 import           Layer1
@@ -70,7 +70,11 @@ basicAuthCheck env =
     check (BasicAuthData username password) = do
       emailText <- pure . decodeUtf8 $ username
       userEmail <- either throwError (pure) $ mkUserEmail emailText
-      mUsr <- getUserByEmail userEmail
+
+      passwordText <- pure . decodeUtf8 $ password
+      userPassword <- either throwError (pure) $ mkUserPassword passwordText
+
+      mUsr <- authenticateUser userEmail userPassword
       maybe (throwError $ NoUserWithEmail userEmail) (pure . Authenticated . AUser . userId) mUsr
   in (fmap (either (const SAS.Indefinite) id) . runHandler . (enter $ nt env) . check)
 
@@ -103,7 +107,7 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
   where
     toServantErr :: AppError -> ServantErr
     toServantErr err@(NoUserWithEmail _) = err404 { errBody = pack $ show err }
-    toServantErr err@(DbError _)         = err404 { errBody = pack $ show err }
+    toServantErr err@(DbError _)         = err500 { errBody = pack $ show err }
     toServantErr err@(AuthenticationError _) = err403 { errBody = pack $ show err }
 
 mkApp :: AppEnv -> IO Application
@@ -118,11 +122,12 @@ mkApp env = do
 runApp :: AppEnv -> IO ()
 runApp env = do
   app <- mkApp env
-  run 8080 app
+  run port app
+    where port = (fromIntegral . Conf.Types.getPort . networkPort . networkConf . appConf) env
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
-postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData "james@example.com" "foobar")
+postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData "james@example.com" "b4cc344d25a2efe540adbf2678e2304c")
 
 data StartupError
   = ConfError ConfigError
@@ -163,7 +168,7 @@ main = do
     (Right env) -> do
       mgr <- newManager defaultManagerSettings
       bracket (forkIO $ runApp env) killThread $ \_ -> do
-        ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 8080 "")) $ do
+        ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 3008 "")) $ do
           postIssueC (IssueBlueprint "Testing blueprint")
           getIssuesC
         print ms
@@ -188,7 +193,8 @@ test = do
     (Right env) -> do
       eUnit <- runExceptT . flip runReaderT env . unAppT $ do
         email <- either throwError pure $ mkUserEmail "null@example.com"
-        mUser <- getUserByEmail email
+        pw <- either throwError pure $ mkUserPassword "pw"
+        mUser <- authenticateUser email pw
         liftIO $ case mUser of
           Nothing  -> print "No user"
           (Just u) -> print u
