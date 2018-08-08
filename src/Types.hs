@@ -85,7 +85,7 @@ data DbError = BeamPostgresError B.PgError
              | PostgresSqlError B.SqlError
   deriving (Show)
 
-data AppError = NoUserWithEmail UserEmail
+data AppError = NoUser
               | DbError DbError
               | AuthenticationError (AuthResult AuthenticatedUser)
   deriving (Show)

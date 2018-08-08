@@ -75,8 +75,12 @@ basicAuthCheck env =
       userPassword <- either throwError (pure) $ mkUserPassword passwordText
 
       mUsr <- authenticateUser userEmail userPassword
-      maybe (throwError $ NoUserWithEmail userEmail) (pure . Authenticated . AUser . userId) mUsr
-  in (fmap (either (const SAS.Indefinite) id) . runHandler . (enter $ nt env) . check)
+      maybe (throwError $ NoUser) (pure . Authenticated . AUser . userId) mUsr
+
+    toAuthResponse :: ServantErr -> AuthResult AuthenticatedUser
+    toAuthResponse ServantErr { errHTTPCode = _, errReasonPhrase = _, errBody = _, errHeaders = _} = SAS.Indefinite
+
+  in (fmap (either (toAuthResponse) id) . runHandler . (enter $ nt env) . check)
 
 type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthenticatedUser)
 
@@ -106,7 +110,7 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
   . unAppT
   where
     toServantErr :: AppError -> ServantErr
-    toServantErr err@(NoUserWithEmail _) = err404 { errBody = pack $ show err }
+    toServantErr err@(NoUser) = err404 { errBody = pack $ show err }
     toServantErr err@(DbError _)         = err500 { errBody = pack $ show err }
     toServantErr err@(AuthenticationError _) = err403 { errBody = pack $ show err }
 
