@@ -86,6 +86,8 @@ data DbError = BeamPostgresError B.PgError
   deriving (Show)
 
 data AppError = NoUser
+              | IncorrectPassword
+              | CouldntHash
               | DbError DbError
               | AuthenticationError (AuthResult AuthenticatedUser)
   deriving (Show)
@@ -201,3 +203,14 @@ data CommentBlueprint = CommentBlueprint
 
 instance ToJSON CommentBlueprint
 instance FromJSON CommentBlueprint
+
+data UserBlueprint = UserBlueprint
+  { userBlueprintEmail     :: Text
+  , userBlueprintFirstName :: Text
+  , userBlueprintLastName  :: Text
+  , userBlueprintPassword  :: Text
+  }
+  deriving (Show, Eq, Generic)
+
+instance ToJSON UserBlueprint
+instance FromJSON UserBlueprint

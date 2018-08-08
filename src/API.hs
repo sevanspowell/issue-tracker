@@ -11,15 +11,16 @@ import           Control.Exception                (bracket, try)
 import           Control.Monad                    (join)
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader             (ask)
-import           Control.Monad.Trans.Except       (ExceptT (..), runExceptT, except)
+import           Control.Monad.Trans.Except       (ExceptT (..), except,
+                                                   runExceptT)
 import           Control.Monad.Trans.Reader       (runReaderT)
 import           Data.Aeson
 import           Data.Bifunctor                   (first)
 import           Data.ByteString                  (ByteString)
-import           Data.ByteString.Lazy.Char8 (pack)
+import           Data.ByteString.Lazy.Char8       (pack)
 import           Data.Pool
 import           Data.Text                        (unpack)
-import           Data.Text.Encoding               (decodeUtf8)
+import           Data.Text.Encoding               (decodeUtf8, encodeUtf8)
 import qualified Data.Time.Clock                  as T
 import           Database.PostgreSQL.Simple
 import           GHC.Generics
@@ -36,12 +37,14 @@ import           Servant.Common.Req               as SC
 import           Conf
 import           Conf.Types
 import qualified DB.IssueTrackerDb                as DB
-import           Types                            (AppDb(..), AppEnv (..),
+import           Types                            (AppDb (..), AppEnv (..),
                                                    AppError (..), AppT (..),
-                                                   DbConnection(..), Issue,
-                                                   IssueBlueprint (..), UserId,
-                                                    destroyEnv, mkUserEmail, mkUserPassword,
-                                                   userId, AuthenticatedUser(..))
+                                                   AuthenticatedUser (..),
+                                                   DbConnection (..), Issue,
+                                                   IssueBlueprint (..),
+                                                   UserBlueprint (..), UserId,
+                                                   destroyEnv, mkUserEmail,
+                                                   mkUserPassword, userId)
 
 import           Layer1
 import           Layer2
@@ -50,14 +53,18 @@ import           Servant.Server.Experimental.Auth (AuthHandler, AuthServerData,
                                                    mkAuthHandler)
 import           Servant.Server.Experimental.Auth ()
 
-type API = ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
-      :<|> Get '[JSON] [Issue]
+type PrivateAPI =
+       ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
+  :<|> Get '[JSON] [Issue]
+
+type PublicAPI = "user" :> ReqBody '[JSON] UserBlueprint :> Post '[JSON] NoContent
 
 type APIServer =
-  Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser :> API
+  PublicAPI :<|>
+  Auth '[SA.BasicAuth, SA.JWT] AuthenticatedUser :> PrivateAPI
 
 type APIClient =
-  S.BasicAuth "test" AuthenticatedUser :> API
+  S.BasicAuth "test" AuthenticatedUser :> PrivateAPI
 
 type instance AuthServerData (AuthProtect "cookie-auth") = AuthenticatedUser
 
@@ -88,20 +95,27 @@ instance FromBasicAuthData AuthenticatedUser where
   fromBasicAuthData authData authCheckFunction = authCheckFunction authData
 
 server :: ServerT APIServer AppM
-server (Authenticated user) = postIssueHandler :<|> getIssuesHandler
+server = public :<|> private
   where
-    postIssueHandler :: IssueBlueprint -> AppM NoContent
-    postIssueHandler = fmap (const NoContent) . addIssue (auId user)
+    public = addUserHandler
+      where
+        addUserHandler :: UserBlueprint -> AppM NoContent
+        addUserHandler = fmap (const NoContent) . addUser
 
-    getIssuesHandler :: AppM [Issue]
-    getIssuesHandler = getIssues
-server err = error1 :<|> error2
-  where
-    error1 :: IssueBlueprint -> AppM NoContent
-    error1 _ = throwError $ AuthenticationError err
+    private (Authenticated user) = postIssueHandler :<|> getIssuesHandler
+      where
+        postIssueHandler :: IssueBlueprint -> AppM NoContent
+        postIssueHandler = fmap (const NoContent) . addIssue (auId user)
 
-    error2 :: AppM [Issue]
-    error2 = throwError $ AuthenticationError err
+        getIssuesHandler :: AppM [Issue]
+        getIssuesHandler = getIssues
+    private err = error1 :<|> error2
+      where
+        error1 :: IssueBlueprint -> AppM NoContent
+        error1 _ = throwError $ AuthenticationError err
+
+        error2 :: AppM [Issue]
+        error2 = throwError $ AuthenticationError err
 
 nt :: AppEnv -> (AppM :~> Handler)
 nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
@@ -109,10 +123,13 @@ nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
   . flip runReaderT env
   . unAppT
   where
+    p = Data.ByteString.Lazy.Char8.pack
     toServantErr :: AppError -> ServantErr
-    toServantErr err@(NoUser) = err404 { errBody = pack $ show err }
-    toServantErr err@(DbError _)         = err500 { errBody = pack $ show err }
-    toServantErr err@(AuthenticationError _) = err403 { errBody = pack $ show err }
+    toServantErr err@(NoUser)                = err404 { errBody = p $ show err }
+    toServantErr err@(IncorrectPassword)     = err401 { errBody = p $ show err }
+    toServantErr err@(CouldntHash)           = err500 { errBody = p $ show err }
+    toServantErr err@(DbError _)             = err500 { errBody = p $ show err }
+    toServantErr err@(AuthenticationError _) = err403 { errBody = p $ show err }
 
 mkApp :: AppEnv -> IO Application
 mkApp env = do
@@ -131,7 +148,7 @@ runApp env = do
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
-postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData "james@example.com" "b4cc344d25a2efe540adbf2678e2304c")
+postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData (encodeUtf8 $ userBlueprintEmail testUserBlueprint) (encodeUtf8 $ userBlueprintPassword testUserBlueprint))
 
 data StartupError
   = ConfError ConfigError
@@ -188,19 +205,17 @@ runServer = do
     (Right env) -> do
       runApp env
 
-test :: IO ()
-test = do
+testUserBlueprint :: UserBlueprint
+testUserBlueprint = UserBlueprint "test@example.com" "Test" "Dummy" "dummy"
+
+seed :: IO ()
+seed = do
   eEnv <- runExceptT prepareAppEnv
 
   case eEnv of
     (Left err)  -> print err
     (Right env) -> do
       eUnit <- runExceptT . flip runReaderT env . unAppT $ do
-        email <- either throwError pure $ mkUserEmail "null@example.com"
-        pw <- either throwError pure $ mkUserPassword "pw"
-        mUser <- authenticateUser email pw
-        liftIO $ case mUser of
-          Nothing  -> print "No user"
-          (Just u) -> print u
+        addUser (testUserBlueprint)
 
       either print pure eUnit

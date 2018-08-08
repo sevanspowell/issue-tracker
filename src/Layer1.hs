@@ -19,8 +19,10 @@ import           Control.Lens
 import           Control.Monad.Except       (MonadError, join, throwError)
 import           Control.Monad.IO.Class     (MonadIO, liftIO)
 import           Control.Monad.Reader       (MonadReader, ask, lift)
+import qualified Crypto.BCrypt              as BCR
 import           Data.Pool                  (withResource)
 import           Data.Text                  (Text, unpack)
+import           Data.Text.Encoding         (decodeUtf8, encodeUtf8)
 import qualified Data.Time.LocalTime        as T (getCurrentTimeZone)
 import qualified Database.Beam              as B
 import qualified Database.Beam.Postgres     as B
@@ -36,8 +38,9 @@ import           Types                      (AppError (..), AppT,
                                              DbConnection (..), DbError (..),
                                              Issue, IssueBlueprint (..),
                                              IssueStatus (..), User (..),
-                                             UserEmail, dbConn, getUserEmail,
-                                             getUserId, getUserPassword)
+                                             UserBlueprint (..), UserEmail,
+                                             dbConn, getUserEmail, getUserId,
+                                             getUserPassword)
 
 
 beamErrors :: B.PgError -> Maybe AppError
@@ -53,6 +56,26 @@ sqlErrors err@(B.SqlError _ _ _ _ _) = Just . DbError . PostgresSqlError $ err
 -- sqlErrors _ = Nothing
 
 instance (MonadIO m) => MonadUser (AppT m) where
+  addUser (UserBlueprint email fName lName pw) = do
+    conns <- getDbConn <$> view dbConn
+
+    mPass <- liftIO $ BCR.hashPasswordUsingPolicy BCR.slowerBcryptHashingPolicy (encodeUtf8 pw)
+    pass <- maybe (throwError CouldntHash) (pure . decodeUtf8) mPass
+
+    eUnit <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
+      tryJust beamErrors $
+      B.runBeamPostgresDebug putStrLn conn $
+        B.runInsert $
+        B.insert (issueTrackerDb ^. issueTrackerUsers) $
+          B.insertExpressions [DbUser B.default_
+                               (B.val_ email)
+                               (B.val_ fName)
+                               (B.val_ lName)
+                               (B.val_ pass)
+                              ]
+
+    either throwError pure eUnit
+
   authenticateUser email password = do
     conns <- getDbConn <$> view dbConn
 
@@ -61,7 +84,6 @@ instance (MonadIO m) => MonadUser (AppT m) where
         B.runSelectReturningOne $
           B.select $
           B.filter_ (\user -> (_userEmail user) B.==. (B.val_ $ getUserEmail email)) $
-          B.filter_ (\user -> (_userPassword user) B.==. (B.val_ $ getUserPassword password)) $
           B.all_ (issueTrackerDb ^. issueTrackerUsers)
 
     x <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
@@ -69,11 +91,17 @@ instance (MonadIO m) => MonadUser (AppT m) where
         B.runBeamPostgresDebug putStrLn conn $
           query
 
-    user <- either throwError (pure) x
+    mUser <- either throwError (pure) x
 
-    case user of
-      Nothing    -> pure $ Nothing
-      (Just usr) -> either throwError (pure . Just) . fromDbUser $ usr
+    case mUser of
+      Nothing -> pure Nothing
+      (Just dbUsr) -> do
+        u <- either throwError pure $ fromDbUser dbUsr
+
+        case BCR.validatePassword (encodeUtf8 $ getUserPassword $ userPassword u) (encodeUtf8 $ getUserPassword password) of
+          False -> throwError IncorrectPassword
+          -- TODO on correct, rehash if not using correct policy
+          True  -> pure (Just u)
 
 instance (MonadIO m) => MonadIssue (AppT m) where
   addIssue userId (IssueBlueprint title) = do

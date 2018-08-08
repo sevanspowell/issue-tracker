@@ -2,35 +2,38 @@
 
 ## Setup
 
-```
-$ nix-shell
-$ cabal repl
+1. Configure Postgres according to config.json
 
+2. In an appropriate REPL:
+
+```
 $ import DB.PostgreSQL
 $ createDbTables
-$ testInsert
 
 $ import API
+$ seed
 $ runServer
 ```
 
 ## Run example client
 
 ```
-$ nix-shell
-$ cabal repl
 $ import API
 $ main
 ```
 
 ## Testing
+After executing `runServer`:
 
 ```
-curl -XGET -v "http://sam%40example.com:332532dcfaa1cbf61e2a266bd723612c@localhost:3008/"
-
+# Get issues
+curl -XGET -v "http://test%40example.com:dummy@localhost:3008/"
 curl -v -H 'Authorization: Bearer [YOUR-JWT-TOKEN]' 'http://localhost:3008/'
 
+# Add issue
+curl -XPOST -H "Content-Type: application/json" --data '{"issueBlueprintTitle":"My Title"}' "http://test%40example.com:dummy@localhost:3008/"
+curl -XPOST -H "Content-Type: application/json" -H "Authorization: Bearer [YOUR-JWT-TOKEN]" --data '{"issueBlueprintTitle":"My Title"}' localhost:3008/
 
-curl -XPOST -H "Content-Type: application/json" -H "Authorization: Bearer [YOUR-JWT-TOKEN]" --data '{"issueBlueprintTitle":"Cmdline2"}' localhost:3008/
-
+# Add user (no authentication needed)
+curl -XPOST -H "Content-Type: application/json" --data '{"userBlueprintEmail": "sam@example.com", "userBlueprintFirstName": "Samuel", "userBlueprintLastName": "Evans-Powell", "userBlueprintPassword": "asdf"}' "http://localhost:3008/user"
 ```
