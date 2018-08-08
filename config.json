@@ -1,0 +1,11 @@
+{
+    "networkConf":  {
+        "networkPort": 3008
+    },
+    "databaseConf": {
+        "databasePort": 5432,
+        "databasePath": "issue_tracker",
+        "databaseUser": "postgres",
+        "databasePassword": "abc"
+    }
+}

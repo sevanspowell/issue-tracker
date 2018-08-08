@@ -12,16 +12,19 @@ module DB.IssueTrackerDb where
 import           Database.Beam
 import           Database.Beam.Postgres
 
+import qualified Data.Time.LocalTime                      as T (getCurrentTimeZone)
+
 import           Control.Lens
 
 import           Database.PostgreSQL.Simple               (Connection, Query)
 
 import qualified Database.Beam.Backend.SQL.BeamExtensions as BeamExtensions
 
+import           DB                                       (fromDbIssue)
 import           DB.Comment
 import           DB.Issue
 import           DB.User
-import           Types                                    (IssueStatus(..))
+import           Types
 
 data IssueTrackerDb f = IssueTrackerDb
                       { _issueTrackerUsers    :: f (TableEntity DbUserT)
@@ -42,6 +45,29 @@ issueTrackerDb = defaultDbSettings `withDbModification`
   , _issueTrackerComments  = modifyTable (\_ -> "comments") tableModification
   }
 
+-- insertNewIssue :: Connection -> IssueBlueprint -> IO ()
+-- insertNewIssue conn (IssueBlueprint title) =
+--   runBeamPostgresDebug putStrLn conn $
+--     runInsert $
+--       insert (_issueTrackerIssues issueTrackerDb) $
+--         insertExpressions [DbIssue default_ (val_ title) (val_ (DbUserId $ getUserId submitter)) currentTimestamp_ (val_ (Open))]
+
+getIssues :: Connection -> IO (Either AppError [Issue])
+getIssues conn = do
+  dbIssues <-
+    runBeamPostgresDebug putStrLn conn $
+      runSelectReturningList $
+        select $ do
+          all_ (issueTrackerDb ^. issueTrackerIssues)
+
+  tz <- T.getCurrentTimeZone
+
+  pure . traverse (fromDbIssue tz) $ dbIssues
+
+-- postComment :: Issue -> User -> CommentBody -> IO (Either AppError ())
+-- postComment issue user body = do
+
+-- Some seed data
 users :: [DbUser]
 users@[james, betty, sam] = [ DbUser 1 "james@example.com" "James" "Smith" "b4cc344d25a2efe540adbf2678e2304c"
                             , DbUser 2 "betty@example.com" "Betty" "Jones" "82b054bd83ffad9b6cf8bdb98ce3cc2f"
