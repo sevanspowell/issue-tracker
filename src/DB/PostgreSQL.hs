@@ -77,33 +77,3 @@ createCommentsTableQ =
 deleteCommentsTableQ :: PG.Query
 deleteCommentsTableQ =
   "DROP TABLE IF EXISTS comments"
-
-testInsert :: IO ()
-testInsert = do
-  let info = PG.defaultConnectInfo
-             { PG.connectUser = "postgres"
-             , PG.connectDatabase = "issue_tracker"
-             , PG.connectPassword = "abc"
-             }
-  conn <- PG.connect info
-
-  insertUsers conn
-  issues <- insertAndReturnIssues conn
-  insertComments conn issues
-
-  PG.close conn
-
-testGetIssues :: IO ()
-testGetIssues = do
-  let info = PG.defaultConnectInfo
-             { PG.connectUser = "postgres"
-             , PG.connectDatabase = "issue_tracker"
-             , PG.connectPassword = "abc"
-             }
-  conn <- PG.connect info
-
-  issues <- getIssues conn
-
-  mapM_ print issues
-
-  PG.close conn
