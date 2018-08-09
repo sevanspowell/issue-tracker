@@ -90,8 +90,9 @@ library
                      , text
                      , transformers
                      , time
-                     , wai == 3.2.1.1
-                     , warp == 3.2.13
+                     , wai == 3.2.*
+                     , warp < 3.3
+                     , warp-tls == 3.2.*
   
   -- Directories containing source files.
   hs-source-dirs:      src

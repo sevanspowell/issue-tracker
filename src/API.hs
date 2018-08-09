@@ -28,6 +28,7 @@ import           Network.HTTP.Client              (defaultManagerSettings,
                                                    newManager)
 import           Network.Wai                      (Request, requestHeaders)
 import           Network.Wai.Handler.Warp
+import           Network.Wai.Handler.WarpTLS
 import           Servant                          as S
 import           Servant.Auth                     as SA
 import           Servant.Auth.Server              as SAS
@@ -143,8 +144,11 @@ mkApp env = do
 runApp :: AppEnv -> IO ()
 runApp env = do
   app <- mkApp env
-  run port app
-    where port = (fromIntegral . Conf.Types.getPort . networkPort . networkConf . appConf) env
+  runTLS tlsOpts warpOpts app
+    where
+      tlsOpts = tlsSettings "certificate.pem" "secret-key.pem"
+      warpOpts = setPort port defaultSettings
+      port = (fromIntegral . Conf.Types.getPort . networkPort . networkConf . appConf) env
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
@@ -202,8 +206,7 @@ runServer = do
 
   case eEnv of
     (Left err)  -> print err
-    (Right env) -> do
-      runApp env
+    (Right env) -> runApp env
 
 testUserBlueprint :: UserBlueprint
 testUserBlueprint = UserBlueprint "test@example.com" "Test" "Dummy" "dummy"

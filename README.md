@@ -27,13 +27,13 @@ After executing `runServer`:
 
 ```
 # Get issues
-curl -XGET -v "http://test%40example.com:dummy@localhost:3008/"
-curl -v -H 'Authorization: Bearer [YOUR-JWT-TOKEN]' 'http://localhost:3008/'
+curl --cacert cacert.pem -XGET -v "https://test%40example.com:dummy@localhost:3008/"
+curl --cacert cacert.pem -v -H 'Authorization: Bearer [YOUR-JWT-TOKEN]' 'https://localhost:3008/'
 
 # Add issue
-curl -XPOST -H "Content-Type: application/json" --data '{"issueBlueprintTitle":"My Title"}' "http://test%40example.com:dummy@localhost:3008/"
-curl -XPOST -H "Content-Type: application/json" -H "Authorization: Bearer [YOUR-JWT-TOKEN]" --data '{"issueBlueprintTitle":"My Title"}' localhost:3008/
+curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '{"issueBlueprintTitle":"My Title"}' "https://test%40example.com:dummy@localhost:3008/"
+curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" -H "Authorization: Bearer [YOUR-JWT-TOKEN]" --data '{"issueBlueprintTitle":"My Title"}' localhost:3008/
 
 # Add user (no authentication needed)
-curl -XPOST -H "Content-Type: application/json" --data '{"userBlueprintEmail": "sam@example.com", "userBlueprintFirstName": "Samuel", "userBlueprintLastName": "Evans-Powell", "userBlueprintPassword": "asdf"}' "http://localhost:3008/user"
+curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '{"userBlueprintEmail": "sam@example.com", "userBlueprintFirstName": "Samuel", "userBlueprintLastName": "Evans-Powell", "userBlueprintPassword": "asdf"}' "https://localhost:3008/user"
 ```

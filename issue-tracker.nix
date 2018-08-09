@@ -2,7 +2,7 @@
 , beam-postgres, bytestring, http-client, lens, mtl
 , postgresql-simple, resource-pool, safe-exceptions, servant
 , servant-auth, servant-auth-server, servant-client, servant-server
-, stdenv, text, time, transformers, wai, warp
+, stdenv, text, time, transformers, wai, warp, warp-tls
 }:
 mkDerivation {
   pname = "issue-tracker";
@@ -13,6 +13,7 @@ mkDerivation {
     http-client lens mtl postgresql-simple resource-pool
     safe-exceptions servant servant-auth servant-auth-server
     servant-client servant-server text time transformers wai warp
+    warp-tls
   ];
   license = stdenv.lib.licenses.bsd3;
 }
