@@ -41,6 +41,7 @@ import qualified DB.IssueTrackerDb                as DB
 import           Types                            (AppDb (..), AppEnv (..),
                                                    AppError (..), AppT (..),
                                                    AuthenticatedUser (..),
+                                                   Comment,
                                                    CommentBlueprint (..),
                                                    DbConnection (..), Issue,
                                                    IssueBlueprint (..), IssueId,
@@ -61,7 +62,7 @@ type PrivateAPI =
   :<|> "issues" :> Get '[JSON] [Issue]
   :<|> "issues" :> Capture "id" IssueId :> "update-status" :> ReqBody '[JSON] IssueStatus :> Post '[JSON] NoContent
   :<|> "comments" :> ReqBody '[JSON] CommentBlueprint :> Post '[JSON] NoContent
-  -- :<|> "comments" :> "for-issue" :> Capture "id" IssueId :> Get '[JSON] [Comment]
+  :<|> "comments" :> "for-issue" :> Capture "id" IssueId :> Get '[JSON] [Comment]
 
 type PublicAPI = "users" :> ReqBody '[JSON] UserBlueprint :> Post '[JSON] NoContent
 
@@ -113,6 +114,7 @@ server = public :<|> private
       :<|> getIssuesHandler
       :<|> updateIssueStatusHandler
       :<|> addCommentHandler
+      :<|> getCommentsHandler
       where
         postIssueHandler :: IssueBlueprint -> AppM NoContent
         postIssueHandler = fmap (const NoContent) . addIssue (auId user)
@@ -127,7 +129,10 @@ server = public :<|> private
 
         addCommentHandler :: CommentBlueprint -> AppM NoContent
         addCommentHandler = fmap (const NoContent) . addComment (auId user)
-    private err = error1 :<|> error2 :<|> error3 :<|> error4
+
+        getCommentsHandler :: IssueId -> AppM [Comment]
+        getCommentsHandler = getComments
+    private err = error1 :<|> error2 :<|> error3 :<|> error4 :<|> error5
       where
         error1 :: IssueBlueprint -> AppM NoContent
         error1 _ = throwError $ AuthenticationError err
@@ -140,6 +145,9 @@ server = public :<|> private
 
         error4 :: CommentBlueprint -> AppM NoContent
         error4 _ = throwError $ AuthenticationError err
+
+        error5 :: IssueId -> AppM [Comment]
+        error5 _ = throwError $ AuthenticationError err
 
 nt :: AppEnv -> (AppM :~> Handler)
 nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
@@ -177,7 +185,9 @@ postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
 updIssueStatusC :: IssueId -> IssueStatus -> ClientM NoContent
 addCommentC :: CommentBlueprint -> ClientM NoContent
-postIssueC :<|> getIssuesC :<|> updIssueStatusC :<|> addCommentC = client (Proxy :: Proxy APIClient) (BasicAuthData (encodeUtf8 $ userBlueprintEmail testUserBlueprint) (encodeUtf8 $ userBlueprintPassword testUserBlueprint))
+getCommentsC :: IssueId -> ClientM [Comment]
+postIssueC :<|> getIssuesC :<|> updIssueStatusC :<|> addCommentC :<|> getCommentsC =
+  client (Proxy :: Proxy APIClient) (BasicAuthData (encodeUtf8 $ userBlueprintEmail testUserBlueprint) (encodeUtf8 $ userBlueprintPassword testUserBlueprint))
 
 data StartupError
   = ConfError ConfigError

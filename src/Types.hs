@@ -175,10 +175,10 @@ instance FromJSON Issue
 -- Comment
 
 newtype CommentId = CommentId Int
-  deriving (Eq, Show, ToJSON)
+  deriving (Eq, Show, ToJSON, FromJSON)
 
 newtype CommentBody = CommentBody T.Text
-  deriving (Eq, Show, ToJSON)
+  deriving (Eq, Show, ToJSON, FromJSON)
 
 data Comment = Comment
   { commentId              :: CommentId
@@ -188,6 +188,9 @@ data Comment = Comment
   , commentBody            :: CommentBody
   }
   deriving (Show, Generic)
+
+instance ToJSON Comment where
+instance FromJSON Comment
 
 mkCommentBody :: T.Text -> Either AppError CommentBody
 mkCommentBody = Right . CommentBody

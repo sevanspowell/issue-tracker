@@ -42,4 +42,7 @@ curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '"Clo
 
 # Post comment
 curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '{"commentBlueprintForIssue":1, "commentBlueprintBody":"Great issue!"}' "https://test%40example.com:dummy@localhost:3008/comments"
+
+# Get comments for issue
+curl --cacert cacert.pem -XGET -v "https://test%40example.com:dummy@localhost:3008/comments/for-issue/1"
 ```

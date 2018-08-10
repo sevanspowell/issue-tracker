@@ -17,4 +17,4 @@ class Monad m => MonadIssue m where
 
 class Monad m => MonadComment m where
   addComment :: UserId -> CommentBlueprint -> m ()
-  -- getComments :: IssueId -> m [Comment]
+  getComments :: IssueId -> m [Comment]

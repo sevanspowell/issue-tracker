@@ -28,13 +28,14 @@ import qualified Database.Beam              as B
 import qualified Database.Beam.Postgres     as B
 import           Database.PostgreSQL.Simple (Connection, Query)
 
-import           DB                         (fromDbIssue, fromDbUser)
+import           DB                         (fromDbComment, fromDbIssue,
+                                             fromDbUser)
+import           DB.Comment
 import           DB.Issue
 import           DB.IssueTrackerDb          (issueTrackerComments,
                                              issueTrackerDb, issueTrackerIssues,
                                              issueTrackerUsers)
 import           DB.User
-import           DB.Comment
 import           Layer2                     (MonadComment (..), MonadIssue (..),
                                              MonadUser (..))
 import           Types                      (AppError (..), AppT,
@@ -172,3 +173,23 @@ instance (MonadIO m) => MonadComment (AppT m) where
                               ]
 
     either throwError pure eUnit
+
+  getComments issueId = do
+
+    conns <- getDbConn <$> view dbConn
+
+    eComments <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
+      tryJust beamErrors $
+      B.runBeamPostgresDebug putStrLn conn $
+        B.runSelectReturningList $
+        B.select $
+        B.filter_ (\c -> (_commentForIssue c) B.==. (B.val_ $ (DbIssueId $ getIssueId issueId))) $
+        B.all_ (issueTrackerDb ^. issueTrackerComments)
+
+    dbComments <- either throwError pure eComments
+
+    tz <- liftIO $ T.getCurrentTimeZone
+
+    either throwError pure
+      . traverse (fromDbComment tz)
+      $ dbComments

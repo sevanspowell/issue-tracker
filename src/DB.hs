@@ -76,8 +76,8 @@ fromDbIssue tz issue =
   <*> pure (localTimeToUTC tz $ issue ^. dbIssueSubmissionTimestamp)
   <*> pure (issue ^. dbIssueStatus)
 
-fromDbComment :: DbComment -> TimeZone -> Either AppError Comment
-fromDbComment comment tz =
+fromDbComment :: TimeZone -> DbComment -> Either AppError Comment
+fromDbComment tz comment =
   Comment (CommentId $ comment ^. dbCommentId)
   <$> mkIssueId (comment ^. dbCommentForIssue)
   <*> mkUserId  (comment ^. dbCommentAuthor)
