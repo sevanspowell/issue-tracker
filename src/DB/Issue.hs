@@ -26,6 +26,7 @@ data DbIssueT f
   , _issueSubmitter           :: PrimaryKey DbUserT f
   , _issueSubmissionTimestamp :: Columnar f LocalTime
   , _issueStatus              :: Columnar f IssueStatus
+  , _issueAssignedTo          :: PrimaryKey DbUserT (Nullable f)
   } deriving Generic
 
 type DbIssue = DbIssueT Identity
@@ -40,10 +41,11 @@ instance Table DbIssueT where
 instance Beamable DbIssueT
 instance Beamable (PrimaryKey DbIssueT)
 deriving instance Show (PrimaryKey DbIssueT Identity)
+deriving instance Show (PrimaryKey DbUserT (Nullable Identity))
 
 DbIssue (LensFor dbIssueId) (LensFor dbIssueTitle)
         (DbUserId (LensFor dbIssueSubmitter)) (LensFor dbIssueSubmissionTimestamp)
-        (LensFor dbIssueStatus) =
+        (LensFor dbIssueStatus) (DbUserId (LensFor dbIssueAssignedTo)) =
   tableLenses
 
 -- Issue has a custom 'IssueStatus' type, have to tell Beam how to deserialize it.

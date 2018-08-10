@@ -109,7 +109,7 @@ instance (MonadIO m) => MonadUser (AppT m) where
           True  -> pure (Just u)
 
 instance (MonadIO m) => MonadIssue (AppT m) where
-  addIssue userId (IssueBlueprint title) = do
+  addIssue userId (IssueBlueprint title assignedTo) = do
     conns <- getDbConn <$> view dbConn
 
     eUnit <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
@@ -122,6 +122,7 @@ instance (MonadIO m) => MonadIssue (AppT m) where
                                (B.val_ (DbUserId $ getUserId userId))
                                B.currentTimestamp_
                                (B.val_ (Open))
+                               (B.val_ (DbUserId $ (getUserId <$> assignedTo)))
                               ]
 
     either throwError pure eUnit
@@ -144,7 +145,7 @@ instance (MonadIO m) => MonadIssue (AppT m) where
       . traverse (fromDbIssue tz)
       $ dbIssues
 
-  updIssueStatus issueId status = do
+  updIssueStatus status issueId = do
     conns <- getDbConn <$> view dbConn
 
     eUnit <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
@@ -152,6 +153,18 @@ instance (MonadIO m) => MonadIssue (AppT m) where
       B.runBeamPostgresDebug putStrLn conn $
         B.runUpdate $ B.update (issueTrackerDb ^. issueTrackerIssues)
                     (\i -> [ (i ^. dbIssueStatus) B.<-. B.val_ (status) ])
+                    (\i -> (i ^. dbIssueId) B.==. B.val_ (getIssueId issueId))
+
+    either throwError pure eUnit
+
+  assignIssue assignTo issueId = do
+    conns <- getDbConn <$> view dbConn
+
+    eUnit <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
+      tryJust beamErrors $
+      B.runBeamPostgresDebug putStrLn conn $
+        B.runUpdate $ B.update (issueTrackerDb ^. issueTrackerIssues)
+                    (\i -> [ (i ^. dbIssueAssignedTo) B.<-. B.val_ (Just (getUserId assignTo)) ])
                     (\i -> (i ^. dbIssueId) B.==. B.val_ (getIssueId issueId))
 
     either throwError pure eUnit

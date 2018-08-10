@@ -64,7 +64,7 @@ deleteUsersTableQ =
 
 createIssuesTableQ :: PG.Query
 createIssuesTableQ =
-  "CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title TEXT NOT NULL, submitter__id integer REFERENCES users NOT NULL, submission_timestamp timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL, status text NOT NULL)"
+  "CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title TEXT NOT NULL, submitter__id integer REFERENCES users NOT NULL, submission_timestamp timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL, status text NOT NULL, assigned_to__id integer REFERENCES users)"
 
 deleteIssuesTableQ :: PG.Query
 deleteIssuesTableQ =

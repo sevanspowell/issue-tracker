@@ -166,6 +166,7 @@ data Issue = Issue
   , issueSubmitter           :: UserId
   , issueSubmissionTimestamp :: UTCTime
   , issueStatus              :: IssueStatus
+  , issueAssignedTo          :: Maybe UserId
   }
   deriving (Show, Generic)
 
@@ -200,7 +201,8 @@ getCommentBody (CommentBody body) = body
 
 -- Blueprints
 data IssueBlueprint = IssueBlueprint
-  { issueBlueprintTitle :: T.Text
+  { issueBlueprintTitle      :: T.Text
+  , issueBlueprintAssignedTo :: Maybe UserId
   }
   deriving (Show, Eq, Generic)
 

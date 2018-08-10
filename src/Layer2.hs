@@ -13,7 +13,8 @@ class Monad m => MonadUser m where
 class Monad m => MonadIssue m where
   addIssue :: UserId -> IssueBlueprint -> m ()
   getIssues :: m [Issue]
-  updIssueStatus :: IssueId -> IssueStatus -> m ()
+  updIssueStatus :: IssueStatus -> IssueId -> m ()
+  assignIssue :: UserId -> IssueId -> m ()
 
 class Monad m => MonadComment m where
   addComment :: UserId -> CommentBlueprint -> m ()

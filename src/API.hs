@@ -61,6 +61,7 @@ type PrivateAPI =
   "issues" :> ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
   :<|> "issues" :> Get '[JSON] [Issue]
   :<|> "issues" :> Capture "id" IssueId :> "update-status" :> ReqBody '[JSON] IssueStatus :> Post '[JSON] NoContent
+  :<|> "issues" :> Capture "id" IssueId :> "assign" :> ReqBody '[JSON] UserId :> Post '[JSON] NoContent
   :<|> "comments" :> ReqBody '[JSON] CommentBlueprint :> Post '[JSON] NoContent
   :<|> "comments" :> "for-issue" :> Capture "id" IssueId :> Get '[JSON] [Comment]
 
@@ -113,6 +114,7 @@ server = public :<|> private
       postIssueHandler
       :<|> getIssuesHandler
       :<|> updateIssueStatusHandler
+      :<|> assignIssueHandler
       :<|> addCommentHandler
       :<|> getCommentsHandler
       where
@@ -124,7 +126,12 @@ server = public :<|> private
 
         updateIssueStatusHandler :: IssueId -> IssueStatus -> AppM NoContent
         updateIssueStatusHandler issueId status = do
-          updIssueStatus issueId status
+          updIssueStatus status issueId
+          pure NoContent
+
+        assignIssueHandler :: IssueId -> UserId -> AppM NoContent
+        assignIssueHandler issueId assignTo = do
+          assignIssue assignTo issueId
           pure NoContent
 
         addCommentHandler :: CommentBlueprint -> AppM NoContent
@@ -132,7 +139,7 @@ server = public :<|> private
 
         getCommentsHandler :: IssueId -> AppM [Comment]
         getCommentsHandler = getComments
-    private err = error1 :<|> error2 :<|> error3 :<|> error4 :<|> error5
+    private err = error1 :<|> error2 :<|> error3 :<|> error4 :<|> error5 :<|> error6
       where
         error1 :: IssueBlueprint -> AppM NoContent
         error1 _ = throwError $ AuthenticationError err
@@ -143,11 +150,14 @@ server = public :<|> private
         error3 :: IssueId -> IssueStatus -> AppM NoContent
         error3 _ _ = throwError $ AuthenticationError err
 
-        error4 :: CommentBlueprint -> AppM NoContent
-        error4 _ = throwError $ AuthenticationError err
+        error4 :: IssueId -> UserId -> AppM NoContent
+        error4 _ _ = throwError $ AuthenticationError err
 
-        error5 :: IssueId -> AppM [Comment]
+        error5 :: CommentBlueprint -> AppM NoContent
         error5 _ = throwError $ AuthenticationError err
+
+        error6 :: IssueId -> AppM [Comment]
+        error6 _ = throwError $ AuthenticationError err
 
 nt :: AppEnv -> (AppM :~> Handler)
 nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
@@ -184,9 +194,10 @@ runApp env = do
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
 updIssueStatusC :: IssueId -> IssueStatus -> ClientM NoContent
+assignIssueC :: IssueId -> UserId -> ClientM NoContent
 addCommentC :: CommentBlueprint -> ClientM NoContent
 getCommentsC :: IssueId -> ClientM [Comment]
-postIssueC :<|> getIssuesC :<|> updIssueStatusC :<|> addCommentC :<|> getCommentsC =
+postIssueC :<|> getIssuesC :<|> updIssueStatusC :<|> assignIssueC :<|> addCommentC :<|> getCommentsC =
   client (Proxy :: Proxy APIClient) (BasicAuthData (encodeUtf8 $ userBlueprintEmail testUserBlueprint) (encodeUtf8 $ userBlueprintPassword testUserBlueprint))
 
 data StartupError
@@ -229,7 +240,7 @@ main = do
       mgr <- newManager defaultManagerSettings
       bracket (forkIO $ runApp env) killThread $ \_ -> do
         ms <- flip runClientM (ClientEnv mgr (BaseUrl Http "localhost" 3008 "")) $ do
-          postIssueC (IssueBlueprint "Testing blueprint")
+          postIssueC (IssueBlueprint "Testing blueprint" Nothing)
           getIssuesC
         print ms
 

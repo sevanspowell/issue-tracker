@@ -49,7 +49,8 @@ import           DB.Issue                                 (DbIssue,
                                                            dbIssueStatus,
                                                            dbIssueSubmissionTimestamp,
                                                            dbIssueSubmitter,
-                                                           dbIssueTitle)
+                                                           dbIssueTitle,
+                                                           dbIssueAssignedTo)
 import           DB.User                                  (DbUser, DbUserT (..),
                                                            dbUserEmail,
                                                            dbUserFirstName,
@@ -75,6 +76,7 @@ fromDbIssue tz issue =
   <*> mkUserId (issue ^. dbIssueSubmitter)
   <*> pure (localTimeToUTC tz $ issue ^. dbIssueSubmissionTimestamp)
   <*> pure (issue ^. dbIssueStatus)
+  <*> traverse mkUserId (issue ^. dbIssueAssignedTo)
 
 fromDbComment :: TimeZone -> DbComment -> Either AppError Comment
 fromDbComment tz comment =
