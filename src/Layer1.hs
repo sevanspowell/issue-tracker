@@ -30,17 +30,21 @@ import           Database.PostgreSQL.Simple (Connection, Query)
 
 import           DB                         (fromDbIssue, fromDbUser)
 import           DB.Issue
-import           DB.IssueTrackerDb          (issueTrackerDb, issueTrackerIssues,
+import           DB.IssueTrackerDb          (issueTrackerComments,
+                                             issueTrackerDb, issueTrackerIssues,
                                              issueTrackerUsers)
 import           DB.User
-import           Layer2                     (MonadIssue (..), MonadUser (..))
+import           DB.Comment
+import           Layer2                     (MonadComment (..), MonadIssue (..),
+                                             MonadUser (..))
 import           Types                      (AppError (..), AppT,
+                                             CommentBlueprint (..),
                                              DbConnection (..), DbError (..),
                                              Issue, IssueBlueprint (..),
                                              IssueStatus (..), User (..),
                                              UserBlueprint (..), UserEmail,
-                                             dbConn, getUserEmail, getUserId,
-                                             getUserPassword, getIssueId)
+                                             dbConn, getIssueId, getUserEmail,
+                                             getUserId, getUserPassword)
 
 
 beamErrors :: B.PgError -> Maybe AppError
@@ -148,5 +152,23 @@ instance (MonadIO m) => MonadIssue (AppT m) where
         B.runUpdate $ B.update (issueTrackerDb ^. issueTrackerIssues)
                     (\i -> [ (i ^. dbIssueStatus) B.<-. B.val_ (status) ])
                     (\i -> (i ^. dbIssueId) B.==. B.val_ (getIssueId issueId))
+
+    either throwError pure eUnit
+
+instance (MonadIO m) => MonadComment (AppT m) where
+  addComment author (CommentBlueprint issueId body) = do
+    conns <- getDbConn <$> view dbConn
+
+    eUnit <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
+      tryJust beamErrors $
+      B.runBeamPostgresDebug putStrLn conn $
+        B.runInsert $
+        B.insert (issueTrackerDb ^. issueTrackerComments) $
+          B.insertExpressions [DbComment B.default_
+                               (B.val_ (DbIssueId $ getIssueId issueId))
+                               (B.val_ (DbUserId $ getUserId author))
+                               B.currentTimestamp_
+                               (B.val_ body)
+                              ]
 
     either throwError pure eUnit

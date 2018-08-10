@@ -206,7 +206,6 @@ instance FromJSON IssueBlueprint
 
 data CommentBlueprint = CommentBlueprint
   { commentBlueprintForIssue :: IssueId
-  , commentBlueprintAuthor   :: UserId
   , commentBlueprintBody     :: T.Text
   }
   deriving (Show, Eq, Generic)

@@ -16,5 +16,5 @@ class Monad m => MonadIssue m where
   updIssueStatus :: IssueId -> IssueStatus -> m ()
 
 class Monad m => MonadComment m where
-  addComment :: IssueId -> UserId -> CommentBody -> m ()
-  getComments :: IssueId -> m [Comment]
+  addComment :: UserId -> CommentBlueprint -> m ()
+  -- getComments :: IssueId -> m [Comment]

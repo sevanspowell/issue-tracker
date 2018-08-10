@@ -39,4 +39,7 @@ curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '{"us
 
 # Update issue status
 curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '"Closed"' "https://test%40example.com:dummy@localhost:3008/issues/1/update-status"
+
+# Post comment
+curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '{"commentBlueprintForIssue":1, "commentBlueprintBody":"Great issue!"}' "https://test%40example.com:dummy@localhost:3008/comments"
 ```
