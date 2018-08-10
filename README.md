@@ -36,4 +36,7 @@ curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" -H "Authoriz
 
 # Add user (no authentication needed)
 curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '{"userBlueprintEmail": "sam@example.com", "userBlueprintFirstName": "Samuel", "userBlueprintLastName": "Evans-Powell", "userBlueprintPassword": "asdf"}' "https://localhost:3008/user"
+
+# Update issue status
+curl --cacert cacert.pem -XPOST -H "Content-Type: application/json" --data '"Closed"' "https://test%40example.com:dummy@localhost:3008/issues/1/update-status"
 ```

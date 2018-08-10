@@ -13,10 +13,11 @@ import           Control.Monad.Reader       (MonadReader)
 import           Control.Monad.Trans        (MonadIO)
 import           Control.Monad.Trans.Except (ExceptT)
 import           Control.Monad.Trans.Reader (ReaderT)
-import           Data.Text                  (Text)
+import qualified Data.Text                  as T
 import           Data.Time                  (UTCTime)
 import qualified Database.Beam.Postgres     as B
 import           GHC.Word                   (Word16)
+import           Text.Read                  (readEither)
 
 import           Data.Aeson                 (FromJSON (..), ToJSON (..),
                                              withObject)
@@ -24,7 +25,10 @@ import           Data.Pool                  (Pool, destroyAllResources)
 import           Database.PostgreSQL.Simple (Connection)
 
 import           Conf.Types
-import           Servant.Auth.Server (AuthResult, ToJWT, FromJWT)
+import           Servant.Auth.Server        (AuthResult, FromJWT, ToJWT)
+import           Web.Internal.HttpApiData   (FromHttpApiData (..),
+                                             ToHttpApiData (..),
+                                             defaultParseError)
 
 
 data IssueStatus = Open | Closed
@@ -97,31 +101,31 @@ data AppError = NoUser
 newtype UserId = UserId Int
   deriving (Eq, Show, ToJSON, FromJSON)
 
-newtype UserEmail = UserEmail Text
+newtype UserEmail = UserEmail T.Text
   deriving (Eq, Show, ToJSON, FromJSON)
 
-newtype UserPassword = UserPassword Text
+newtype UserPassword = UserPassword T.Text
   deriving (Show, ToJSON, FromJSON)
 
 data User = User
   { userId        :: UserId
   , userEmail     :: UserEmail
-  , userFirstName :: Text
-  , userLastName  :: Text
+  , userFirstName :: T.Text
+  , userLastName  :: T.Text
   , userPassword  :: UserPassword
   }
   deriving (Show, Generic)
 
-mkUserEmail :: Text -> Either AppError UserEmail
+mkUserEmail :: T.Text -> Either AppError UserEmail
 mkUserEmail = Right . UserEmail
 
-getUserEmail :: UserEmail -> Text
+getUserEmail :: UserEmail -> T.Text
 getUserEmail (UserEmail txt) = txt
 
-mkUserPassword :: Text -> Either AppError UserPassword
+mkUserPassword :: T.Text -> Either AppError UserPassword
 mkUserPassword = Right . UserPassword
 
-getUserPassword :: UserPassword -> Text
+getUserPassword :: UserPassword -> T.Text
 getUserPassword (UserPassword txt) = txt
 
 mkUserId :: Int -> Either AppError UserId
@@ -135,7 +139,13 @@ getUserId (UserId id) = id
 newtype IssueId = IssueId Int
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
-newtype IssueTitle = IssueTitle Text
+instance FromHttpApiData IssueId where
+  parseUrlPiece = bimap T.pack IssueId . readEither . T.unpack
+
+instance ToHttpApiData IssueId where
+  toUrlPiece (IssueId i) = T.pack $ show i
+
+newtype IssueTitle = IssueTitle T.Text
   deriving (Show, Generic, ToJSON, FromJSON)
 
 mkIssueId :: Int -> Either AppError IssueId
@@ -144,10 +154,10 @@ mkIssueId = Right . IssueId
 getIssueId :: IssueId -> Int
 getIssueId (IssueId id) = id
 
-mkIssueTitle :: Text -> Either AppError IssueTitle
+mkIssueTitle :: T.Text -> Either AppError IssueTitle
 mkIssueTitle = Right . IssueTitle
 
-getIssueTitle :: IssueTitle -> Text
+getIssueTitle :: IssueTitle -> T.Text
 getIssueTitle (IssueTitle txt) = txt
 
 data Issue = Issue
@@ -167,7 +177,7 @@ instance FromJSON Issue
 newtype CommentId = CommentId Int
   deriving (Eq, Show, ToJSON)
 
-newtype CommentBody = CommentBody Text
+newtype CommentBody = CommentBody T.Text
   deriving (Eq, Show, ToJSON)
 
 data Comment = Comment
@@ -179,15 +189,15 @@ data Comment = Comment
   }
   deriving (Show, Generic)
 
-mkCommentBody :: Text -> Either AppError CommentBody
+mkCommentBody :: T.Text -> Either AppError CommentBody
 mkCommentBody = Right . CommentBody
 
-getCommentBody :: CommentBody -> Text
+getCommentBody :: CommentBody -> T.Text
 getCommentBody (CommentBody body) = body
 
 -- Blueprints
 data IssueBlueprint = IssueBlueprint
-  { issueBlueprintTitle :: Text
+  { issueBlueprintTitle :: T.Text
   }
   deriving (Show, Eq, Generic)
 
@@ -197,7 +207,7 @@ instance FromJSON IssueBlueprint
 data CommentBlueprint = CommentBlueprint
   { commentBlueprintForIssue :: IssueId
   , commentBlueprintAuthor   :: UserId
-  , commentBlueprintBody     :: Text
+  , commentBlueprintBody     :: T.Text
   }
   deriving (Show, Eq, Generic)
 
@@ -205,10 +215,10 @@ instance ToJSON CommentBlueprint
 instance FromJSON CommentBlueprint
 
 data UserBlueprint = UserBlueprint
-  { userBlueprintEmail     :: Text
-  , userBlueprintFirstName :: Text
-  , userBlueprintLastName  :: Text
-  , userBlueprintPassword  :: Text
+  { userBlueprintEmail     :: T.Text
+  , userBlueprintFirstName :: T.Text
+  , userBlueprintLastName  :: T.Text
+  , userBlueprintPassword  :: T.Text
   }
   deriving (Show, Eq, Generic)
 

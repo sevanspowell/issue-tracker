@@ -29,7 +29,7 @@ import qualified Database.Beam.Postgres     as B
 import           Database.PostgreSQL.Simple (Connection, Query)
 
 import           DB                         (fromDbIssue, fromDbUser)
-import           DB.Issue                   (DbIssueT (..))
+import           DB.Issue
 import           DB.IssueTrackerDb          (issueTrackerDb, issueTrackerIssues,
                                              issueTrackerUsers)
 import           DB.User
@@ -40,7 +40,7 @@ import           Types                      (AppError (..), AppT,
                                              IssueStatus (..), User (..),
                                              UserBlueprint (..), UserEmail,
                                              dbConn, getUserEmail, getUserId,
-                                             getUserPassword)
+                                             getUserPassword, getIssueId)
 
 
 beamErrors :: B.PgError -> Maybe AppError
@@ -138,3 +138,15 @@ instance (MonadIO m) => MonadIssue (AppT m) where
     either throwError pure
       . traverse (fromDbIssue tz)
       $ dbIssues
+
+  updIssueStatus issueId status = do
+    conns <- getDbConn <$> view dbConn
+
+    eUnit <- liftIO $ fmap join $ tryJust sqlErrors $ withResource conns $ \conn ->
+      tryJust beamErrors $
+      B.runBeamPostgresDebug putStrLn conn $
+        B.runUpdate $ B.update (issueTrackerDb ^. issueTrackerIssues)
+                    (\i -> [ (i ^. dbIssueStatus) B.<-. B.val_ (status) ])
+                    (\i -> (i ^. dbIssueId) B.==. B.val_ (getIssueId issueId))
+
+    either throwError pure eUnit

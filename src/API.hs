@@ -42,7 +42,8 @@ import           Types                            (AppDb (..), AppEnv (..),
                                                    AppError (..), AppT (..),
                                                    AuthenticatedUser (..),
                                                    DbConnection (..), Issue,
-                                                   IssueBlueprint (..),
+                                                   IssueBlueprint (..), IssueId,
+                                                   IssueStatus,
                                                    UserBlueprint (..), UserId,
                                                    destroyEnv, mkUserEmail,
                                                    mkUserPassword, userId)
@@ -57,6 +58,7 @@ import           Servant.Server.Experimental.Auth ()
 type PrivateAPI =
        ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
   :<|> Get '[JSON] [Issue]
+  :<|> "issues" :> Capture "id" IssueId :> "update-status" :> ReqBody '[JSON] IssueStatus :> Post '[JSON] NoContent
 
 type PublicAPI = "user" :> ReqBody '[JSON] UserBlueprint :> Post '[JSON] NoContent
 
@@ -103,20 +105,31 @@ server = public :<|> private
         addUserHandler :: UserBlueprint -> AppM NoContent
         addUserHandler = fmap (const NoContent) . addUser
 
-    private (Authenticated user) = postIssueHandler :<|> getIssuesHandler
+    private (Authenticated user) =
+      postIssueHandler
+      :<|> getIssuesHandler
+      :<|> updateIssueStatusHandler
       where
         postIssueHandler :: IssueBlueprint -> AppM NoContent
         postIssueHandler = fmap (const NoContent) . addIssue (auId user)
 
         getIssuesHandler :: AppM [Issue]
         getIssuesHandler = getIssues
-    private err = error1 :<|> error2
+
+        updateIssueStatusHandler :: IssueId -> IssueStatus -> AppM NoContent
+        updateIssueStatusHandler issueId status = do
+          updIssueStatus issueId status
+          pure NoContent
+    private err = error1 :<|> error2 :<|> error3
       where
         error1 :: IssueBlueprint -> AppM NoContent
         error1 _ = throwError $ AuthenticationError err
 
         error2 :: AppM [Issue]
         error2 = throwError $ AuthenticationError err
+
+        error3 :: IssueId -> IssueStatus -> AppM NoContent
+        error3 _ _ = throwError $ AuthenticationError err
 
 nt :: AppEnv -> (AppM :~> Handler)
 nt env = NT $ ((either (throwError . toServantErr) pure) =<<)
@@ -152,7 +165,8 @@ runApp env = do
 
 postIssueC :: IssueBlueprint -> ClientM NoContent
 getIssuesC :: ClientM [Issue]
-postIssueC :<|> getIssuesC = client (Proxy :: Proxy APIClient) (BasicAuthData (encodeUtf8 $ userBlueprintEmail testUserBlueprint) (encodeUtf8 $ userBlueprintPassword testUserBlueprint))
+updIssueStatusC :: IssueId -> IssueStatus -> ClientM NoContent
+postIssueC :<|> getIssuesC :<|> updIssueStatusC = client (Proxy :: Proxy APIClient) (BasicAuthData (encodeUtf8 $ userBlueprintEmail testUserBlueprint) (encodeUtf8 $ userBlueprintPassword testUserBlueprint))
 
 data StartupError
   = ConfError ConfigError
