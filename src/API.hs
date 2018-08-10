@@ -56,11 +56,13 @@ import           Servant.Server.Experimental.Auth (AuthHandler, AuthServerData,
 import           Servant.Server.Experimental.Auth ()
 
 type PrivateAPI =
-       ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
-  :<|> Get '[JSON] [Issue]
-  :<|> "issues" :> Capture "id" IssueId :> "update-status" :> ReqBody '[JSON] IssueStatus :> Post '[JSON] NoContent
+  "issues" :>
+           (ReqBody '[JSON] IssueBlueprint :> Post '[JSON] NoContent
+            :<|> Get '[JSON] [Issue]
+            :<|> Capture "id" IssueId :> "update-status" :> ReqBody '[JSON] IssueStatus :> Post '[JSON] NoContent
+           )
 
-type PublicAPI = "user" :> ReqBody '[JSON] UserBlueprint :> Post '[JSON] NoContent
+type PublicAPI = "users" :> ReqBody '[JSON] UserBlueprint :> Post '[JSON] NoContent
 
 type APIServer =
   PublicAPI :<|>
